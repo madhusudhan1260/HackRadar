@@ -255,6 +255,17 @@ def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
         auth_service.log_event(db, "login", False, user=user, reason="blocked", request=request)
         raise HTTPException(status.HTTP_403_FORBIDDEN, "This account has been blocked.")
 
+    # The Admin tab is a separate door: the password was right, but this
+    # account has no admin rights, so refuse instead of signing them in.
+    if payload.as_admin and user.role != "admin":
+        auth_service.log_event(
+            db, "login", False, user=user, reason="not an admin", request=request
+        )
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "This account does not have admin access. Use the User tab to sign in.",
+        )
+
     auth_service.ensure_profile(db, user)
     token = auth_service.create_session(db, user, request)
     auth_service.log_event(db, "login", True, user=user, request=request)

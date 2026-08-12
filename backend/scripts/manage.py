@@ -187,6 +187,47 @@ def cmd_users(args) -> None:
         db.close()
 
 
+def cmd_test_sms(args) -> None:
+    """Prove the SMS provider is configured correctly, end to end."""
+    from app.security import normalize_phone, phone_problem
+    from app.services.sms import provider_status, send_test
+
+    status = provider_status()
+    print(f"provider   : {status['provider']}")
+    print(f"configured : {status['configured']}")
+    print(f"live SMS   : {status['is_live']}")
+    print(f"note       : {status['note']}\n")
+
+    if not status["configured"]:
+        print("Fix the credentials in backend/.env first, then re-run this.")
+        return
+
+    if not status["is_live"]:
+        print(
+            "SMS_PROVIDER=console, so nothing will actually be texted.\n"
+            "Set SMS_PROVIDER=twilio or msg91 with credentials to send for real."
+        )
+        if not args.to:
+            return
+
+    phone = normalize_phone(args.to or input("Send a test SMS to (e.g. +919876543210): "))
+    problem = phone_problem(phone)
+    if problem:
+        print(f"error: {problem}")
+        return
+
+    print(f"Sending test message to {phone} …")
+    result = send_test(phone)
+    if result.delivered:
+        print(f"\n  OK — {result.note}")
+        if status["is_live"]:
+            print("  Check the handset. If nothing arrives within a minute, the")
+            print("  provider accepted it but the carrier dropped it — check the")
+            print("  provider's delivery logs (DLT template issues are the usual cause).")
+    else:
+        print(f"\n  FAILED — {result.note}")
+
+
 def cmd_reset(args) -> None:
     if not args.yes:
         confirm = input("Drop all tables and recreate? [y/N] ").strip().lower()
@@ -223,6 +264,10 @@ def main() -> None:
         help="Skips the prompt. Avoid: it lands in your shell history.",
     )
     p_admin.set_defaults(func=cmd_create_admin)
+
+    p_sms = sub.add_parser("test-sms", help="Check SMS provider config and send a test")
+    p_sms.add_argument("--to", help="Destination phone number, e.g. +919876543210")
+    p_sms.set_defaults(func=cmd_test_sms)
 
     p_users = sub.add_parser("users", help="List registered accounts")
     p_users.set_defaults(func=cmd_users)

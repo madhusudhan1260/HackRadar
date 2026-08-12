@@ -58,6 +58,11 @@ export default function App() {
     return () => clearTimeout(timer)
   }, [search])
 
+  // Admins land in their portal; they can still reach every other view.
+  useEffect(() => {
+    if (user?.role === 'admin') setView('admin')
+  }, [user?.id, user?.role])
+
   useEffect(() => {
     if (!user) return
     api.stats().then(setStats).catch(() => {})

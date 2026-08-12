@@ -13,8 +13,8 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import require_admin
-from ..models import AuthSession, Bookmark, LoginEvent, Profile, User
-from ..schemas import AdminOverviewOut, AdminUserOut, LoginEventOut
+from ..models import AuthSession, Bookmark, LoginEvent, OtpCode, Profile, User
+from ..schemas import AdminOverviewOut, AdminUserOut, LoginEventOut, OtpLogOut
 from ..security import mask_phone
 from ..services import auth as auth_service
 from ..services.sms import provider_status
@@ -153,6 +153,40 @@ def login_events(
             created_at=e.created_at,
         )
         for e in events
+    ]
+
+
+@router.get("/otp-log", response_model=list[OtpLogOut])
+def otp_log(db: Session = Depends(get_db), limit: int = Query(50, ge=1, le=200)):
+    """Recent OTP sends and whether delivery succeeded.
+
+    Codes themselves are stored only as hashes and are never returned here.
+    """
+    codes = db.scalars(
+        select(OtpCode).order_by(OtpCode.created_at.desc()).limit(limit)
+    ).all()
+
+    user_ids = {c.user_id for c in codes}
+    users = {
+        u.id: u for u in db.scalars(select(User).where(User.id.in_(user_ids))).all()
+    } if user_ids else {}
+
+    now = _naive_now()
+    return [
+        OtpLogOut(
+            id=c.id,
+            username=users[c.user_id].username if c.user_id in users else "",
+            name=users[c.user_id].name if c.user_id in users else "",
+            phone=c.sent_to,
+            purpose=c.purpose,
+            delivered=c.delivered,
+            delivery_note=c.delivery_note,
+            attempts=c.attempts,
+            consumed=c.consumed_at is not None,
+            expired=c.consumed_at is None and c.expires_at < now,
+            created_at=c.created_at,
+        )
+        for c in codes
     ]
 
 

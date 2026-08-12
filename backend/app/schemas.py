@@ -139,6 +139,25 @@ class VerifyOtpIn(BaseModel):
 class LoginIn(BaseModel):
     username: str
     password: str
+    #: Set by the Admin tab on the login page. A non-admin account that
+    #: authenticates here is refused rather than silently signed in.
+    as_admin: bool = False
+
+
+class OtpLogOut(BaseModel):
+    """Admin view of OTP delivery — never includes the code itself."""
+
+    id: int
+    username: str = ""
+    name: str = ""
+    phone: str = ""
+    purpose: str
+    delivered: bool
+    delivery_note: str = ""
+    attempts: int = 0
+    consumed: bool = False
+    expired: bool = False
+    created_at: datetime
 
 
 class ForgotStartIn(BaseModel):

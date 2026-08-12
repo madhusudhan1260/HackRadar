@@ -126,8 +126,30 @@ MSG91_TEMPLATE_ID=xxxxxxxx
 ```
 
 No code changes needed — restart the backend and OTPs go out over SMS, and the
-dev banner disappears automatically. For Indian numbers you must register a DLT
-template with your provider; that's a regulatory requirement, not a code one.
+dev banner disappears automatically.
+
+**Verify it before trusting it:**
+
+```bash
+cd backend && ./venv/bin/python scripts/manage.py test-sms --to +919876543210
+```
+
+That prints which provider is active, whether credentials are complete, and
+sends one real test message. The **Admin portal → SMS delivery** tab then shows
+every code sent, whether the provider accepted it, and the exact error text if
+it refused.
+
+**For Indian numbers you must register a DLT template** with your provider
+(TRAI requirement — not something code can bypass). Without it, MSG91 will
+accept the request and the carrier will silently drop the message, which is the
+single most common reason "the OTP never arrived".
+
+### Two doors on the login page
+
+The login screen has a **User / Admin** switch. The Admin tab sends
+`as_admin=true`, and the API refuses any account without the admin role — so
+it's a real server-side boundary, not just a UI hint. Admins land straight in
+the portal after signing in.
 
 ### Admin portal
 
@@ -139,6 +161,8 @@ everyone else even if they call it directly. It shows:
 - **Login activity** — every sign-in, registration, and password reset, with
   success/failure, the reason for failures, and the source IP
 - **Live counters** — total/active/pending users, logins and failed logins today
+- **SMS delivery** — every OTP sent, whether the provider accepted it, and the
+  failure reason if not. Codes are stored hashed and are never shown here
 - **Actions** — block/unblock an account, or sign it out of every device
 
 Normal users only ever see their own masked phone (`+91 ••••• 43210`).

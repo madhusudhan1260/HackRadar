@@ -136,6 +136,20 @@ def _send_msg91(phone: str, code: str, message: str) -> SmsResult:
         return SmsResult(False, f"MSG91 request failed: {type(exc).__name__}")
 
 
+def send_test(phone: str) -> SmsResult:
+    """Send a real (non-OTP) message to prove the provider is wired up."""
+    return {
+        "twilio": lambda: _send_twilio(phone, _TEST_BODY),
+        "msg91": lambda: _send_msg91(phone, "123456", _TEST_BODY),
+    }.get(
+        settings.SMS_PROVIDER,
+        lambda: _send_console(phone, "------", "test", _TEST_BODY),
+    )()
+
+
+_TEST_BODY = "HackRadar test message. If you received this, SMS delivery is working."
+
+
 def provider_status() -> dict:
     """Shown in the admin portal so misconfiguration is obvious."""
     provider = settings.SMS_PROVIDER

@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import CodeBackdrop from '../components/CodeBackdrop'
+import Constellation from '../components/Constellation'
+import CountUp from '../components/CountUp'
+import RadarMark from '../components/RadarMark'
 import TerminalDemo from '../components/TerminalDemo'
 
 /**
@@ -41,6 +44,7 @@ export default function Login() {
   const [resendIn, setResendIn] = useState(0)
   const [usernameHint, setUsernameHint] = useState(null)
   const usernameTimer = useRef(null)
+  const cardRef = useRef(null)
 
   const set = (patch) => setForm((current) => ({ ...current, ...patch }))
 
@@ -49,6 +53,34 @@ export default function Login() {
     const timer = setTimeout(() => setResendIn((value) => value - 1), 1000)
     return () => clearTimeout(timer)
   }, [resendIn])
+
+  // Subtle parallax: the card leans towards the pointer.
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined
+    const card = cardRef.current
+    if (!card) return undefined
+
+    const onMove = (event) => {
+      const box = card.getBoundingClientRect()
+      const dx = (event.clientX - (box.left + box.width / 2)) / box.width
+      const dy = (event.clientY - (box.top + box.height / 2)) / box.height
+      // Clamped so it never becomes a distracting swing.
+      const clamp = (v) => Math.max(-1, Math.min(1, v))
+      card.style.setProperty('--tilt-x', `${clamp(dy) * -4}deg`)
+      card.style.setProperty('--tilt-y', `${clamp(dx) * 5}deg`)
+    }
+    const onLeave = () => {
+      card.style.setProperty('--tilt-x', '0deg')
+      card.style.setProperty('--tilt-y', '0deg')
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerleave', onLeave)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerleave', onLeave)
+    }
+  }, [])
 
   const goTo = (nextMode) => {
     setMode(nextMode)
@@ -163,6 +195,8 @@ export default function Login() {
   return (
     <div className={`auth-shell ${isAdmin ? 'admin-mode' : ''}`}>
       <CodeBackdrop />
+      <Constellation />
+      <div className="scanline" aria-hidden="true" />
       <div className="aurora" aria-hidden="true">
         <span className="orb orb-1" />
         <span className="orb orb-2" />
@@ -180,7 +214,7 @@ export default function Login() {
         {/* ---------------- showcase ---------------- */}
         <section className="auth-showcase">
           <div className="brand">
-            <div className="brand-mark">📡</div>
+            <RadarMark size={38} />
             <h1>HackRadar</h1>
           </div>
           <h2 className="showcase-head">
@@ -196,28 +230,30 @@ export default function Login() {
 
           <div className="showcase-stats">
             <div>
-              <strong>164</strong>
+              <strong><CountUp value={164} /></strong>
               <span>hackathons tracked</span>
             </div>
             <div>
-              <strong>3</strong>
+              <strong><CountUp value={3} duration={800} /></strong>
               <span>sources merged</span>
             </div>
             <div>
-              <strong>15</strong>
+              <strong><CountUp value={15} duration={950} /></strong>
               <span>categories classified</span>
             </div>
           </div>
 
           <div className="stack-row">
-            {['Python', 'FastAPI', 'React', 'SQLAlchemy', 'Vite'].map((tech) => (
-              <span key={tech} className="stack-chip">{tech}</span>
+            {['Python', 'FastAPI', 'React', 'SQLAlchemy', 'Vite'].map((tech, index) => (
+              <span key={tech} className="stack-chip" style={{ '--d': index }}>
+                {tech}
+              </span>
             ))}
           </div>
         </section>
 
         {/* ---------------- auth card ---------------- */}
-        <section className="auth-card">
+        <section className="auth-card" ref={cardRef}>
           <div className="portal-switch" role="tablist">
             <button
               type="button"

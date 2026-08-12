@@ -1343,3 +1343,315 @@ a { color: inherit; }
   }
   .showcase-head .grad { color: var(--accent-text); }
 }
+
+/* ================================================================
+   Animation pass — radar mark, mesh, entrances, micro-interactions
+   ================================================================ */
+
+/* --- radar brand mark -------------------------------------------- */
+
+.radar-mark {
+  position: relative;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #4f46e5, #a855f7);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.45);
+  overflow: hidden;
+}
+
+/* Soft pulse so the mark feels "live" even at rest. */
+.radar-mark::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 11px;
+  box-shadow: 0 0 0 0 rgba(129, 140, 248, 0.6);
+  animation: radar-pulse 3s ease-out infinite;
+}
+
+@keyframes radar-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(129, 140, 248, 0.55); }
+  70%  { box-shadow: 0 0 0 12px rgba(129, 140, 248, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(129, 140, 248, 0); }
+}
+
+.radar-ring {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.32);
+  stroke-width: 2;
+}
+
+.radar-sweep {
+  transform-origin: 50px 50px;
+  animation: radar-spin 2.6s linear infinite;
+}
+
+@keyframes radar-spin { to { transform: rotate(360deg); } }
+
+.radar-blip {
+  fill: #fff;
+  opacity: 0;
+  animation: blip 2.6s linear infinite;
+}
+
+/* Each contact lights as the sweep crosses it. */
+.radar-blip.b1 { animation-delay: 0.35s; }
+.radar-blip.b2 { animation-delay: 1.5s; }
+.radar-blip.b3 { animation-delay: 1.05s; }
+
+@keyframes blip {
+  0%   { opacity: 0.95; r: 4; }
+  22%  { opacity: 0.35; }
+  55%  { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+/* --- constellation + scanline ------------------------------------ */
+
+.constellation {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -2;
+  pointer-events: none;
+}
+
+.scanline {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(129, 140, 248, 0.055) 48%,
+    rgba(129, 140, 248, 0.11) 50%,
+    rgba(129, 140, 248, 0.055) 52%,
+    transparent 100%
+  );
+  background-size: 100% 260px;
+  background-repeat: no-repeat;
+  animation: scan 7.5s linear infinite;
+}
+
+@keyframes scan {
+  0%   { background-position: 0 -260px; }
+  100% { background-position: 0 100vh; }
+}
+
+/* --- login card tilt + field polish ------------------------------- */
+
+.auth-card {
+  transform: perspective(1100px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.3, 1);
+  transform-style: preserve-3d;
+}
+
+.field input:focus {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+  background: var(--bg-elev);
+}
+
+.field input {
+  transition: border-color 0.16s, box-shadow 0.22s, background 0.16s;
+}
+
+.admin-mode .field input:focus {
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.18);
+  border-color: var(--hot);
+}
+
+/* Shine that sweeps across the submit button. */
+.auth-submit { position: relative; overflow: hidden; }
+
+.auth-submit::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(
+    100deg, transparent, rgba(255, 255, 255, 0.28), transparent
+  );
+  transform: skewX(-20deg);
+  animation: shine 3.4s ease-in-out infinite;
+}
+
+@keyframes shine {
+  0%, 65% { left: -60%; }
+  100%    { left: 130%; }
+}
+
+.auth-submit:disabled::after { animation: none; }
+
+.portal-switch button { position: relative; overflow: hidden; }
+
+.stack-chip {
+  animation: chip-in 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: calc(var(--d, 0) * 80ms + 300ms);
+  transition: border-color 0.16s, color 0.16s, transform 0.16s;
+}
+
+.stack-chip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  transform: translateY(-2px);
+}
+
+@keyframes chip-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.94); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.showcase-stats strong { display: block; }
+
+.otp-input:focus {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.22), 0 0 26px rgba(99, 102, 241, 0.25);
+}
+
+.dev-code { animation: code-pop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+
+@keyframes code-pop {
+  from { opacity: 0; transform: scale(0.7); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.error-banner, .notice-banner { animation: shake-in 0.4s ease both; }
+
+@keyframes shake-in {
+  0%   { opacity: 0; transform: translateX(-9px); }
+  45%  { transform: translateX(5px); }
+  70%  { transform: translateX(-3px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+/* --- dashboard entrances ------------------------------------------ */
+
+.main { animation: view-in 0.32s ease both; }
+
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.card {
+  animation: card-in 0.42s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  /* Cap the delay so page 2+ never waits on a long ladder. */
+  animation-delay: calc(min(var(--stagger, 0), 11) * 45ms);
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.board-row {
+  animation: row-in 0.34s ease both;
+  animation-delay: calc(min(var(--stagger, 0), 12) * 35ms);
+}
+
+@keyframes row-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.board-row:hover { transform: translateX(3px); }
+.board-row { transition: border-color 0.14s, transform 0.14s; }
+
+.stat {
+  animation: card-in 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  transition: border-color 0.16s, transform 0.16s;
+}
+
+.stat:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+
+/* --- micro-interactions -------------------------------------------- */
+
+.star { transition: transform 0.18s cubic-bezier(0.2, 1.6, 0.4, 1), color 0.18s; }
+.star:hover { transform: scale(1.28); }
+.star.burst { animation: star-burst 0.45s cubic-bezier(0.2, 1.5, 0.4, 1); }
+
+@keyframes star-burst {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.55) rotate(14deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+/* Urgent deadlines breathe so they catch the eye. */
+.deadline-pill.urgent { animation: urgent-pulse 2s ease-in-out infinite; }
+
+@keyframes urgent-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+  50%      { box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.16); }
+}
+
+.badge.strong { animation: badge-glow 2.6s ease-in-out infinite; }
+
+@keyframes badge-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+  50%      { box-shadow: 0 0 12px 0 rgba(16, 185, 129, 0.35); }
+}
+
+.nav button { position: relative; }
+
+.nav button.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  height: 60%;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: nav-mark 0.28s ease both;
+}
+
+@keyframes nav-mark {
+  from { transform: scaleY(0); opacity: 0; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+
+.chip, .btn { transition: all 0.14s; }
+.chip:active, .btn:active:not(:disabled) { transform: scale(0.96); }
+
+/* --- modal ---------------------------------------------------------- */
+
+.modal-backdrop { animation: fade-in 0.2s ease both; }
+.modal { animation: modal-in 0.34s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(20px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.match-bar > div {
+  animation: bar-fill 0.85s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  transform-origin: left center;
+}
+
+@keyframes bar-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.data-table tbody tr {
+  animation: row-in 0.3s ease both;
+  animation-delay: calc(min(var(--stagger, 0), 14) * 28ms);
+}
+
+/* --- reduced motion: switch all of it off --------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .constellation, .scanline { display: none; }
+  .radar-sweep, .radar-blip, .radar-mark::after,
+  .auth-submit::after, .stack-chip, .dev-code, .error-banner, .notice-banner,
+  .main, .card, .board-row, .stat, .star, .deadline-pill.urgent, .badge.strong,
+  .nav button.active::before, .modal, .modal-backdrop, .match-bar > div,
+  .data-table tbody tr {
+    animation: none !important;
+  }
+  .auth-card { transform: none !important; }
+}

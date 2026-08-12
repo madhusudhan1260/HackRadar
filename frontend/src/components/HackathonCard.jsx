@@ -10,9 +10,13 @@ export function MatchBadge({ match }) {
   )
 }
 
-export default function HackathonCard({ item, onOpen, onToggleBookmark }) {
+export default function HackathonCard({ item, onOpen, onToggleBookmark, index = 0 }) {
   return (
-    <article className="card" onClick={() => onOpen(item)}>
+    <article
+      className="card"
+      style={{ '--stagger': index }}
+      onClick={() => onOpen(item)}
+    >
       <div className="card-head">
         <div style={{ flex: 1, minWidth: 0 }}>
           <h3 className="card-title">{item.title}</h3>
@@ -20,7 +24,7 @@ export default function HackathonCard({ item, onOpen, onToggleBookmark }) {
         </div>
         <MatchBadge match={item.match} />
         <button
-          className={`star ${item.bookmarked ? 'on' : ''}`}
+          className={`star ${item.bookmarked ? 'on burst' : ''}`}
           title={item.bookmarked ? 'Remove bookmark' : 'Save for later'}
           onClick={(event) => {
             event.stopPropagation()

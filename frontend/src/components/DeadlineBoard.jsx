@@ -49,8 +49,13 @@ export default function DeadlineBoard({ onOpen, refreshKey }) {
             <div className="rule" />
           </div>
 
-          {group.items.map((item) => (
-            <div key={item.id} className="board-row" onClick={() => onOpen(item)}>
+          {group.items.map((item, index) => (
+            <div
+              key={item.id}
+              className="board-row"
+              style={{ '--stagger': index }}
+              onClick={() => onOpen(item)}
+            >
               {item.bookmarked && <span title="Saved">★</span>}
               <span className="name">{item.title}</span>
               <MatchBadge match={item.match} />

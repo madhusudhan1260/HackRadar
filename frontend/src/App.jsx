@@ -6,6 +6,8 @@ import HackathonDetail from './components/HackathonDetail'
 import DeadlineBoard from './components/DeadlineBoard'
 import ProfilePanel from './components/ProfilePanel'
 import SourcesPanel from './components/SourcesPanel'
+import CountUp from './components/CountUp'
+import RadarMark from './components/RadarMark'
 import AdminPortal from './pages/AdminPortal'
 import Login from './pages/Login'
 import { useAuth } from './auth'
@@ -146,7 +148,7 @@ export default function App() {
     <div className="app">
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="brand">
-          <div className="brand-mark">📡</div>
+          <RadarMark size={34} />
           <h1>HackRadar</h1>
         </div>
         <p className="brand-tag">One place for every hackathon</p>
@@ -206,7 +208,7 @@ export default function App() {
         )}
       </aside>
 
-      <main className="main">
+      <main className="main" key={view}>
         {showsList && (
           <div className="topbar">
             <button
@@ -247,27 +249,27 @@ export default function App() {
         {view === 'discover' && stats && (
           <div className="stat-row">
             <div className="stat">
-              <div className="value">{stats.open}</div>
+              <div className="value"><CountUp value={stats.open} /></div>
               <div className="label">Open now</div>
             </div>
             <div className="stat hot">
-              <div className="value">{stats.closing_this_week}</div>
+              <div className="value"><CountUp value={stats.closing_this_week} /></div>
               <div className="label">Closing this week</div>
             </div>
             <div className="stat">
-              <div className="value">{stats.india}</div>
+              <div className="value"><CountUp value={stats.india} /></div>
               <div className="label">🇮🇳 In India</div>
             </div>
             <div className="stat">
-              <div className="value">{stats.online}</div>
+              <div className="value"><CountUp value={stats.online} /></div>
               <div className="label">Online</div>
             </div>
             <div className="stat">
-              <div className="value">{stats.student}</div>
+              <div className="value"><CountUp value={stats.student} /></div>
               <div className="label">Student-friendly</div>
             </div>
             <div className="stat">
-              <div className="value">{Object.keys(stats.by_source).length}</div>
+              <div className="value"><CountUp value={Object.keys(stats.by_source).length} duration={700} /></div>
               <div className="label">Sources</div>
             </div>
           </div>
@@ -311,9 +313,10 @@ export default function App() {
             {!loading && data && data.items.length > 0 && (
               <>
                 <div className="grid">
-                  {data.items.map((item) => (
+                  {data.items.map((item, index) => (
                     <HackathonCard
                       key={item.id}
+                      index={index}
                       item={item}
                       onOpen={openDetail}
                       onToggleBookmark={toggleBookmark}

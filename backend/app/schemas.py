@@ -109,6 +109,101 @@ class ProfileOut(BaseModel):
     updated_at: datetime | None = None
 
 
+# --------------------------------------------------------------------------
+# Auth
+# --------------------------------------------------------------------------
+
+
+class RegisterIn(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    username: str = Field(min_length=3, max_length=30)
+    phone: str = Field(min_length=8, max_length=20)
+    password: str = Field(min_length=6, max_length=200)
+
+
+class OtpSentOut(BaseModel):
+    sent: bool
+    phone_masked: str
+    expires_in: int
+    resend_in: int
+    note: str = ""
+    #: Only populated by the console SMS provider, for local testing.
+    dev_code: str | None = None
+
+
+class VerifyOtpIn(BaseModel):
+    username: str
+    code: str = Field(min_length=4, max_length=10)
+
+
+class LoginIn(BaseModel):
+    username: str
+    password: str
+
+
+class ForgotStartIn(BaseModel):
+    username: str
+
+
+class ResetPasswordIn(BaseModel):
+    username: str
+    code: str = Field(min_length=4, max_length=10)
+    new_password: str = Field(min_length=6, max_length=200)
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str
+    name: str
+    phone_masked: str = ""
+    role: str
+    status: str
+    phone_verified: bool
+    created_at: datetime | None = None
+    last_login_at: datetime | None = None
+    login_count: int = 0
+
+
+class AuthOut(BaseModel):
+    token: str
+    user: UserOut
+
+
+class AdminUserOut(UserOut):
+    """Admin view — the full phone number, plus activity counters."""
+
+    phone: str
+    active_sessions: int = 0
+    bookmarks: int = 0
+
+
+class LoginEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int | None = None
+    username_tried: str = ""
+    name: str = ""
+    phone: str = ""
+    event: str
+    success: bool
+    reason: str = ""
+    ip: str = ""
+    created_at: datetime
+
+
+class AdminOverviewOut(BaseModel):
+    total_users: int
+    active_users: int
+    pending_users: int
+    admins: int
+    logins_today: int
+    failed_logins_today: int
+    sms: dict
+
+
 class BookmarkIn(BaseModel):
     hackathon_id: int
     note: str = ""

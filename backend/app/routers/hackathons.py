@@ -8,7 +8,8 @@ from sqlalchemy import String, func, or_, select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import Bookmark, Hackathon, IngestRun
+from ..deps import get_current_profile
+from ..models import Bookmark, Hackathon, IngestRun, Profile
 from ..schemas import (
     DeadlineBoard,
     DeadlineGroup,
@@ -18,7 +19,6 @@ from ..schemas import (
 )
 from ..serializers import to_out
 from ..services.dedupe import collapse
-from .profile import current_profile
 
 router = APIRouter(prefix="/api/hackathons", tags=["hackathons"])
 
@@ -28,6 +28,38 @@ PRIZE_BUCKETS: dict[str, tuple[int, int | None]] = {
     "10k-1l": (10_000, 100_000),
     "1l+": (100_000, None),
 }
+
+
+def priority_score(
+    row: Hackathon, profile: Profile, today: date, bookmarked_ids: set[int]
+) -> float:
+    """What should this user act on first?
+
+    Deadline urgency and personal fit both matter: a 95% match closing in
+    three months is less urgent than a 70% match closing on Friday. Saved
+    events are pulled to the top because the user already committed to them.
+
+        urgency  0-50   closes today = 50, decays to 0 over 45 days
+        match    0-40   the skill match score
+        saved      15   explicit user intent outranks any heuristic
+        closed    -100  never surface a dead listing first
+    """
+    from .profile import _score_cache
+
+    if row.status != "open":
+        return -100.0
+
+    if row.deadline is None:
+        urgency = 10.0  # unknown deadline — mildly deprioritised, not buried
+    else:
+        days_left = (row.deadline - today).days
+        if days_left < 0:
+            return -100.0
+        urgency = max(0.0, 50.0 * (1 - min(days_left, 45) / 45))
+
+    match = _score_cache(row, profile, today) * 0.4
+    saved = 15.0 if row.id in bookmarked_ids else 0.0
+    return urgency + match + saved
 
 
 @router.get("", response_model=HackathonList)
@@ -44,13 +76,13 @@ def list_hackathons(
     within_days: int | None = Query(None, ge=0, le=365),
     status: str = Query("open", pattern="^(open|closed|all)$"),
     bookmarked_only: bool = False,
-    sort: str = Query("deadline", pattern="^(deadline|prize|match|recent|title)$"),
+    sort: str = Query("priority", pattern="^(priority|deadline|prize|match|recent|title)$"),
     group_duplicates: bool = True,
     page: int = Query(1, ge=1),
     per_page: int = Query(24, ge=1, le=100),
+    profile: Profile = Depends(get_current_profile),
 ):
     """The main dashboard query. Every filter from the feature table lives here."""
-    profile = current_profile(db)
     today = date.today()
 
     stmt = select(Hackathon)
@@ -139,6 +171,10 @@ def list_hackathons(
         grouped.sort(
             key=lambda g: (-_score_cache(g[0], profile, today), g[0].deadline or far_future)
         )
+    elif sort == "priority":
+        grouped.sort(
+            key=lambda g: -priority_score(g[0], profile, today, bookmarked_ids)
+        )
 
     total = len(grouped)
     start = (page - 1) * per_page
@@ -157,9 +193,9 @@ def deadline_board(
     bookmarked_only: bool = False,
     min_score: int = Query(0, ge=0, le=100),
     horizon_days: int = Query(30, ge=1, le=180),
+    profile: Profile = Depends(get_current_profile),
 ):
     """The 'MY HACKATHONS / DEADLINES' board, bucketed by urgency."""
-    profile = current_profile(db)
     today = date.today()
     limit_date = today + timedelta(days=horizon_days)
 
@@ -245,12 +281,15 @@ def stats(db: Session = Depends(get_db)):
 
 
 @router.get("/{hackathon_id}", response_model=HackathonOut)
-def get_hackathon(hackathon_id: int, db: Session = Depends(get_db)):
+def get_hackathon(
+    hackathon_id: int,
+    db: Session = Depends(get_db),
+    profile: Profile = Depends(get_current_profile),
+):
     row = db.get(Hackathon, hackathon_id)
     if row is None:
         raise HTTPException(404, "Hackathon not found")
 
-    profile = current_profile(db)
     bookmarked_ids = {
         b.hackathon_id
         for b in db.scalars(select(Bookmark).where(Bookmark.profile_id == profile.id)).all()

@@ -61,6 +61,44 @@ class Settings:
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
     ANTHROPIC_MODEL: str = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5")
 
+    # --- Auth -----------------------------------------------------------
+    # Used to pepper OTP hashes and sign nothing else — session tokens are
+    # random and stored hashed. Change it and all live sessions/OTPs die.
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-secret-change-me-in-production")
+    SESSION_TTL_HOURS: int = int(os.getenv("SESSION_TTL_HOURS", "168"))  # 7 days
+    MIN_PASSWORD_LENGTH: int = int(os.getenv("MIN_PASSWORD_LENGTH", "8"))
+
+    # --- OTP ------------------------------------------------------------
+    OTP_LENGTH: int = int(os.getenv("OTP_LENGTH", "6"))
+    OTP_TTL_MINUTES: int = int(os.getenv("OTP_TTL_MINUTES", "5"))
+    OTP_MAX_ATTEMPTS: int = int(os.getenv("OTP_MAX_ATTEMPTS", "5"))
+    OTP_RESEND_COOLDOWN_SECONDS: int = int(os.getenv("OTP_RESEND_COOLDOWN_SECONDS", "60"))
+    # Max OTPs per phone number per hour — SMS costs money and OTP
+    # endpoints are a favourite target for abuse.
+    OTP_HOURLY_LIMIT: int = int(os.getenv("OTP_HOURLY_LIMIT", "5"))
+
+    # --- SMS delivery ----------------------------------------------------
+    # console = print the OTP to the server log (development only).
+    # twilio / msg91 = real SMS, needs the credentials below.
+    SMS_PROVIDER: str = os.getenv("SMS_PROVIDER", "console").lower()
+    DEFAULT_COUNTRY_CODE: str = os.getenv("DEFAULT_COUNTRY_CODE", "+91")
+
+    TWILIO_ACCOUNT_SID: str = os.getenv("TWILIO_ACCOUNT_SID", "")
+    TWILIO_AUTH_TOKEN: str = os.getenv("TWILIO_AUTH_TOKEN", "")
+    TWILIO_FROM_NUMBER: str = os.getenv("TWILIO_FROM_NUMBER", "")
+
+    MSG91_AUTH_KEY: str = os.getenv("MSG91_AUTH_KEY", "")
+    MSG91_SENDER_ID: str = os.getenv("MSG91_SENDER_ID", "HCKRDR")
+    MSG91_TEMPLATE_ID: str = os.getenv("MSG91_TEMPLATE_ID", "")
+
+    # --- First admin ------------------------------------------------------
+    # Optional convenience bootstrap. Prefer scripts/manage.py create-admin,
+    # which prompts for the password instead of leaving it in a file.
+    ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "")
+    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "")
+    ADMIN_NAME: str = os.getenv("ADMIN_NAME", "Administrator")
+    ADMIN_PHONE: str = os.getenv("ADMIN_PHONE", "")
+
     CORS_ORIGINS: list[str] = [
         o.strip()
         for o in os.getenv(

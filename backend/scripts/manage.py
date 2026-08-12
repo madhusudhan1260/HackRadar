@@ -19,8 +19,7 @@ from sqlalchemy import func, select  # noqa: E402
 
 from app.config import settings  # noqa: E402
 from app.db import Base, SessionLocal, engine, init_db  # noqa: E402
-from app.models import Hackathon  # noqa: E402
-from app.routers.profile import current_profile  # noqa: E402
+from app.models import Hackathon, Profile  # noqa: E402
 from app.services import pipeline  # noqa: E402
 from app.services.notifier import dispatch  # noqa: E402
 
@@ -67,16 +66,123 @@ def cmd_stats(args) -> None:
 
 
 def cmd_notify(args) -> None:
+    """Run deadline alerts for every registered user."""
     init_db()
     db = SessionLocal()
     try:
-        profile = current_profile(db)
-        result = dispatch(db, profile, dry_run=args.dry_run)
-        print(f"alerts: {len(result['alerts'])}  sent: {result['sent']}")
-        for alert in result["alerts"]:
-            print(f"  [{alert['days_left']}d] {alert['title']} — {alert['match_score']}%")
-        if result.get("note"):
-            print(f"\nnote: {result['note']}")
+        profiles = db.scalars(select(Profile)).all()
+        if not profiles:
+            print("No profiles yet — register an account first.")
+            return
+
+        for profile in profiles:
+            result = dispatch(db, profile, dry_run=args.dry_run)
+            print(f"\n{profile.name} (profile {profile.id})")
+            print(f"  alerts: {len(result['alerts'])}  sent: {result['sent']}")
+            for alert in result["alerts"]:
+                print(f"    [{alert['days_left']}d] {alert['title']} — {alert['match_score']}%")
+            if result.get("note"):
+                print(f"    note: {result['note']}")
+    finally:
+        db.close()
+
+
+def cmd_create_admin(args) -> None:
+    """Create (or promote) the admin account for the separate admin portal."""
+    import getpass
+
+    from sqlalchemy import select as sa_select
+
+    from app.models import User
+    from app.security import (
+        hash_password,
+        normalize_phone,
+        normalize_username,
+        password_problem,
+        phone_problem,
+        username_problem,
+    )
+    from app.services.auth import ensure_profile
+
+    init_db()
+    db = SessionLocal()
+    try:
+        username = normalize_username(args.username or input("Admin username: "))
+        problem = username_problem(username)
+        if problem:
+            print(f"error: {problem}")
+            return
+
+        existing = db.scalar(sa_select(User).where(User.username == username))
+
+        if existing is not None:
+            existing.role = "admin"
+            existing.status = "active"
+            existing.phone_verified = True
+            db.commit()
+            print(f"Promoted existing account '{username}' to admin.")
+            return
+
+        name = args.name or input("Full name: ")
+        phone = normalize_phone(args.phone or input("Phone (e.g. +919876543210): "))
+        problem = phone_problem(phone)
+        if problem:
+            print(f"error: {problem}")
+            return
+        if db.scalar(sa_select(User).where(User.phone == phone)) is not None:
+            print("error: that phone number is already registered.")
+            return
+
+        # Read the password from a prompt so it never lands in shell history.
+        password = args.password or getpass.getpass("Password: ")
+        if not args.password:
+            if password != getpass.getpass("Confirm password: "):
+                print("error: passwords do not match.")
+                return
+        problem = password_problem(password)
+        if problem:
+            print(f"error: {problem}")
+            return
+
+        admin = User(
+            username=username,
+            name=name.strip(),
+            phone=phone,
+            password_hash=hash_password(password),
+            role="admin",
+            status="active",
+            phone_verified=True,
+        )
+        db.add(admin)
+        db.commit()
+        db.refresh(admin)
+        ensure_profile(db, admin)
+
+        print(f"\nAdmin created: {username} ({phone})")
+        print("Sign in at the normal login page — the Admin tab appears automatically.")
+    finally:
+        db.close()
+
+
+def cmd_users(args) -> None:
+    from sqlalchemy import select as sa_select
+
+    from app.models import User
+
+    init_db()
+    db = SessionLocal()
+    try:
+        users = db.scalars(sa_select(User).order_by(User.created_at.desc())).all()
+        if not users:
+            print("No users registered yet.")
+            return
+        print(f"{'username':<20} {'name':<22} {'phone':<16} {'role':<6} {'status':<8} logins")
+        print("-" * 84)
+        for u in users:
+            print(
+                f"{u.username:<20} {u.name[:20]:<22} {u.phone:<16} "
+                f"{u.role:<6} {u.status:<8} {u.login_count}"
+            )
     finally:
         db.close()
 
@@ -107,6 +213,19 @@ def main() -> None:
     p_notify = sub.add_parser("notify", help="Send deadline alerts")
     p_notify.add_argument("--dry-run", action="store_true")
     p_notify.set_defaults(func=cmd_notify)
+
+    p_admin = sub.add_parser("create-admin", help="Create or promote an admin account")
+    p_admin.add_argument("--username")
+    p_admin.add_argument("--name")
+    p_admin.add_argument("--phone")
+    p_admin.add_argument(
+        "--password",
+        help="Skips the prompt. Avoid: it lands in your shell history.",
+    )
+    p_admin.set_defaults(func=cmd_create_admin)
+
+    p_users = sub.add_parser("users", help="List registered accounts")
+    p_users.set_defaults(func=cmd_users)
 
     p_reset = sub.add_parser("reset", help="Drop and recreate all tables")
     p_reset.add_argument("--yes", action="store_true")

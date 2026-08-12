@@ -6,6 +6,9 @@ import HackathonDetail from './components/HackathonDetail'
 import DeadlineBoard from './components/DeadlineBoard'
 import ProfilePanel from './components/ProfilePanel'
 import SourcesPanel from './components/SourcesPanel'
+import AdminPortal from './pages/AdminPortal'
+import Login from './pages/Login'
+import { useAuth } from './auth'
 
 const DEFAULT_FILTERS = {
   q: '',
@@ -18,7 +21,7 @@ const DEFAULT_FILTERS = {
   student_only: false,
   team_size: '',
   group_duplicates: true,
-  sort: 'deadline',
+  sort: 'priority',
   page: 1,
   per_page: 24,
 }
@@ -33,6 +36,7 @@ const VIEWS = [
 ]
 
 export default function App() {
+  const { user, ready, signOut, isAdmin } = useAuth()
   const [view, setView] = useState('discover')
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [search, setSearch] = useState('')
@@ -55,11 +59,13 @@ export default function App() {
   }, [search])
 
   useEffect(() => {
+    if (!user) return
     api.stats().then(setStats).catch(() => {})
-  }, [refreshKey])
+  }, [refreshKey, user])
 
   useEffect(() => {
-    if (!['discover', 'saved', 'foryou'].includes(view)) return
+    if (!user) return undefined
+    if (!['discover', 'saved', 'foryou'].includes(view)) return undefined
 
     let cancelled = false
     setLoading(true)
@@ -83,7 +89,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [view, filters, refreshKey])
+  }, [view, filters, refreshKey, user])
 
   const toggleBookmark = useCallback(
     async (item) => {
@@ -126,6 +132,11 @@ export default function App() {
 
   const showsList = ['discover', 'saved', 'foryou'].includes(view)
 
+  if (!ready) {
+    return <div className="empty" style={{ paddingTop: '25vh' }}>Loading…</div>
+  }
+  if (!user) return <Login />
+
   return (
     <div className="app">
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
@@ -154,6 +165,32 @@ export default function App() {
             </button>
           ))}
         </nav>
+
+        {isAdmin && (
+          <nav className="nav" style={{ marginTop: -14 }}>
+            <button
+              className={view === 'admin' ? 'active' : ''}
+              onClick={() => {
+                setView('admin')
+                setSidebarOpen(false)
+              }}
+            >
+              <span>🛡️</span>
+              <span>Admin portal</span>
+            </button>
+          </nav>
+        )}
+
+        <div className="account-box">
+          <div className="account-name">
+            {user.name}
+            {isAdmin && <span className="role-tag">admin</span>}
+          </div>
+          <div className="account-meta">@{user.username} · {user.phone_masked}</div>
+          <button className="link-btn" onClick={signOut}>
+            Sign out
+          </button>
+        </div>
 
         {view === 'discover' && (
           <Filters
@@ -191,6 +228,7 @@ export default function App() {
                   setFilters({ ...filters, sort: event.target.value, page: 1 })
                 }
               >
+                <option value="priority">⚡ Priority (urgency + match)</option>
                 <option value="deadline">📅 Nearest deadline</option>
                 <option value="match">🧠 Best match</option>
                 <option value="prize">💰 Biggest prize</option>
@@ -235,6 +273,7 @@ export default function App() {
         {view === 'deadlines' && <DeadlineBoard onOpen={openDetail} refreshKey={refreshKey} />}
         {view === 'profile' && <ProfilePanel onSaved={bumpRefresh} />}
         {view === 'sources' && <SourcesPanel onIngested={bumpRefresh} />}
+        {view === 'admin' && isAdmin && <AdminPortal />}
 
         {showsList && (
           <>

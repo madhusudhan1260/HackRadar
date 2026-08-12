@@ -45,7 +45,16 @@ the dashboard is never empty. Interactive API docs: http://localhost:8000/docs
 cd frontend && npm install && npm run dev
 ```
 
-**3. Pull in real hackathons**
+**3. Create your admin account**
+
+```bash
+cd backend && ./venv/bin/python scripts/manage.py create-admin
+```
+
+It prompts for username, name, phone and password. Sign in normally — the
+**Admin portal** tab appears automatically for admin accounts.
+
+**4. Pull in real hackathons**
 
 ```bash
 cd backend && ./venv/bin/python scripts/manage.py ingest
@@ -60,6 +69,8 @@ re-ingests automatically every 6 hours while it runs.
 
 | Feature | Where it lives |
 |---|---|
+| ⚡ Priority ordering (default) | urgency + match + saved, in `routers/hackathons.py` |
+| 🔐 Accounts, OTP signup, admin portal | `routers/auth.py`, `routers/admin_users.py` |
 | 🔎 All hackathons, one dashboard | `GET /api/hackathons` |
 | 🇮🇳 India / 🌎 Global filter | `region=india\|global` — city + country detection |
 | 🤖 AI/ML, 💻 Web, 🔐 Security, ☁️ Cloud, +10 more | `services/classifier.py` |
@@ -72,6 +83,78 @@ re-ingests automatically every 6 hours while it runs.
 | 🔔 Deadline alerts (7/3/1 days) | `services/notifier.py` |
 | 🧠 Skill-based match score | `services/matcher.py` |
 | 🔗 Cross-platform de-duplication | `services/dedupe.py` |
+
+---
+
+## Accounts, OTP and the admin portal
+
+### How sign-in works
+
+| Step | What happens |
+|---|---|
+| **Register** | Name, unique username, phone, password → a 6-digit OTP goes to the phone |
+| **Verify** | Correct OTP activates the account. **This is the only time a user sees an OTP** |
+| **Sign in** | Username + password only — no OTP, ever again |
+| **Wrong password** | Generic error (no user enumeration); 5 failures locks the account for 15 minutes |
+| **Forgot password** | OTP to the registered phone → set a new password → all old sessions are revoked |
+
+Usernames and phone numbers are both unique. An unverified registration holds
+its username for 24 hours, then it's released.
+
+### Sending real SMS
+
+Out of the box `SMS_PROVIDER=console`: **no SMS is sent** — the OTP is printed
+to the backend terminal and shown on screen in a clearly-marked dev banner. That
+lets you develop and demo without paying for anything.
+
+For real messages you need your own SMS gateway account:
+
+```bash
+# backend/.env — Twilio (worldwide)
+SMS_PROVIDER=twilio
+TWILIO_ACCOUNT_SID=ACxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxx
+TWILIO_FROM_NUMBER=+1234567890
+```
+
+```bash
+# backend/.env — MSG91 (cheaper for Indian numbers)
+SMS_PROVIDER=msg91
+MSG91_AUTH_KEY=xxxxxxxx
+MSG91_SENDER_ID=HCKRDR
+MSG91_TEMPLATE_ID=xxxxxxxx
+```
+
+No code changes needed — restart the backend and OTPs go out over SMS, and the
+dev banner disappears automatically. For Indian numbers you must register a DLT
+template with your provider; that's a regulatory requirement, not a code one.
+
+### Admin portal
+
+Visible only to accounts with `role = admin`, and the API returns **403** to
+everyone else even if they call it directly. It shows:
+
+- **Every registered user** — name, full phone number, username, status, login
+  count, last login, registration date, active sessions
+- **Login activity** — every sign-in, registration, and password reset, with
+  success/failure, the reason for failures, and the source IP
+- **Live counters** — total/active/pending users, logins and failed logins today
+- **Actions** — block/unblock an account, or sign it out of every device
+
+Normal users only ever see their own masked phone (`+91 ••••• 43210`).
+
+### Security notes
+
+Passwords are bcrypt hashes; OTPs and session tokens are stored only as
+peppered SHA-256 digests. OTPs expire in 5 minutes, allow 5 attempts, enforce a
+60-second resend cooldown and a 5-per-hour cap per account — SMS costs real
+money and OTP endpoints get abused. Every account has its own profile and
+bookmarks.
+
+Before deploying: set a real `SECRET_KEY`, switch to Postgres, and serve over
+HTTPS. Phone numbers are personal data — treat the database accordingly.
+
+---
 
 ### The deadline board
 
@@ -146,8 +229,24 @@ whether they're also delivered to you.
 ./venv/bin/python scripts/manage.py ingest --source mlh # run just one
 ./venv/bin/python scripts/manage.py stats               # what's in the database
 ./venv/bin/python scripts/manage.py notify --dry-run    # preview alerts
+./venv/bin/python scripts/manage.py create-admin        # create/promote an admin
+./venv/bin/python scripts/manage.py users               # list registered accounts
 ./venv/bin/python scripts/manage.py reset               # drop and recreate tables
 ```
+
+## Priority ordering
+
+The dashboard defaults to **Priority**, which answers "what should I act on
+first?" rather than just "what closes soonest":
+
+| Component | Points | Why |
+|---|---|---|
+| Urgency | 0–50 | closes today = 50, decaying to 0 over 45 days |
+| Match | 0–40 | your skill match score |
+| Saved | +15 | you already committed to it |
+
+A 70% match closing Friday outranks a 95% match closing in three months. The
+other sorts (deadline, match, prize, recent, title) are still available.
 
 ## Project layout
 

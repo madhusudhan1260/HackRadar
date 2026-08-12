@@ -8,13 +8,15 @@ from sqlalchemy.orm import Session
 from ..collectors import available
 from ..config import settings
 from ..db import SessionLocal, get_db
-from ..models import Hackathon, IngestRun
+from ..deps import get_current_profile, get_current_user
+from ..models import Hackathon, IngestRun, Profile
 from ..schemas import IngestRequest, IngestResult, SourceInfo
 from ..services import pipeline
 from ..services.notifier import dispatch, pending_alerts
-from .profile import current_profile
 
-router = APIRouter(prefix="/api", tags=["admin"])
+router = APIRouter(
+    prefix="/api", tags=["admin"], dependencies=[Depends(get_current_user)]
+)
 
 
 @router.get("/sources", response_model=list[SourceInfo])
@@ -91,9 +93,10 @@ def ingest_runs(db: Session = Depends(get_db), limit: int = 20):
 
 
 @router.get("/notifications/preview")
-def preview_notifications(db: Session = Depends(get_db)):
+def preview_notifications(
+    db: Session = Depends(get_db), profile: Profile = Depends(get_current_profile)
+):
     """What would be sent right now, without sending anything."""
-    profile = current_profile(db)
     alerts = pending_alerts(db, profile)
     return {
         "count": len(alerts),
@@ -116,6 +119,9 @@ def preview_notifications(db: Session = Depends(get_db)):
 
 
 @router.post("/notifications/send")
-def send_notifications(db: Session = Depends(get_db), dry_run: bool = False):
-    profile = current_profile(db)
+def send_notifications(
+    db: Session = Depends(get_db),
+    dry_run: bool = False,
+    profile: Profile = Depends(get_current_profile),
+):
     return dispatch(db, profile, dry_run=dry_run)

@@ -1,8 +1,8 @@
 """Profile, bookmarks and AI recommendations.
 
-The app is single-user by design (it runs on your machine), so there is one
-profile row and no auth. Swap `current_profile` for a real dependency the
-day you add accounts — nothing else needs to change.
+Each account owns exactly one profile, so bookmarks and match scores are
+per-user. The profile is resolved from the bearer token by
+`deps.get_current_profile`.
 """
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
+from ..deps import get_current_profile
 from ..models import Bookmark, Hackathon, Profile
 from ..schemas import BookmarkIn, HackathonOut, ProfileIn, ProfileOut
 from ..serializers import to_out
@@ -23,22 +24,6 @@ router = APIRouter(prefix="/api", tags=["profile"])
 
 DEFAULT_SKILLS = ["Python", "C++", "JavaScript", "HTML/CSS", "Flask", "Machine Learning"]
 DEFAULT_INTERESTS = ["ai-ml", "web", "cybersecurity", "cloud"]
-
-
-def current_profile(db: Session) -> Profile:
-    """Fetch the single profile, creating a sensible default on first run."""
-    profile = db.scalar(select(Profile).order_by(Profile.id).limit(1))
-    if profile is None:
-        profile = Profile(
-            name="Me",
-            skills=list(DEFAULT_SKILLS),
-            interests=list(DEFAULT_INTERESTS),
-            notify_days_before=[7, 3, 1],
-        )
-        db.add(profile)
-        db.commit()
-        db.refresh(profile)
-    return profile
 
 
 def _score_cache(row: Hackathon, profile: Profile, today: date) -> int:
@@ -52,13 +37,16 @@ def _score_cache(row: Hackathon, profile: Profile, today: date) -> int:
 
 
 @router.get("/profile", response_model=ProfileOut)
-def read_profile(db: Session = Depends(get_db)):
-    return current_profile(db)
+def read_profile(profile: Profile = Depends(get_current_profile)):
+    return profile
 
 
 @router.put("/profile", response_model=ProfileOut)
-def update_profile(payload: ProfileIn, db: Session = Depends(get_db)):
-    profile = current_profile(db)
+def update_profile(
+    payload: ProfileIn,
+    db: Session = Depends(get_db),
+    profile: Profile = Depends(get_current_profile),
+):
     for field, value in payload.model_dump(exclude_unset=True).items():
         if value is not None:
             setattr(profile, field, value)
@@ -78,9 +66,9 @@ def recommendations(
     db: Session = Depends(get_db),
     limit: int = Query(12, ge=1, le=50),
     min_score: int = Query(40, ge=0, le=100),
+    profile: Profile = Depends(get_current_profile),
 ):
     """Best-matching open hackathons for the current profile."""
-    profile = current_profile(db)
     today = date.today()
 
     rows = db.scalars(
@@ -109,8 +97,9 @@ def recommendations(
 
 
 @router.get("/bookmarks", response_model=list[HackathonOut])
-def list_bookmarks(db: Session = Depends(get_db)):
-    profile = current_profile(db)
+def list_bookmarks(
+    db: Session = Depends(get_db), profile: Profile = Depends(get_current_profile)
+):
     today = date.today()
     bookmarks = db.scalars(
         select(Bookmark).where(Bookmark.profile_id == profile.id)
@@ -126,8 +115,11 @@ def list_bookmarks(db: Session = Depends(get_db)):
 
 
 @router.post("/bookmarks", response_model=HackathonOut, status_code=201)
-def add_bookmark(payload: BookmarkIn, db: Session = Depends(get_db)):
-    profile = current_profile(db)
+def add_bookmark(
+    payload: BookmarkIn,
+    db: Session = Depends(get_db),
+    profile: Profile = Depends(get_current_profile),
+):
     row = db.get(Hackathon, payload.hackathon_id)
     if row is None:
         raise HTTPException(404, "Hackathon not found")
@@ -155,8 +147,11 @@ def add_bookmark(payload: BookmarkIn, db: Session = Depends(get_db)):
 
 
 @router.delete("/bookmarks/{hackathon_id}", status_code=204)
-def remove_bookmark(hackathon_id: int, db: Session = Depends(get_db)):
-    profile = current_profile(db)
+def remove_bookmark(
+    hackathon_id: int,
+    db: Session = Depends(get_db),
+    profile: Profile = Depends(get_current_profile),
+):
     existing = db.scalar(
         select(Bookmark).where(
             Bookmark.profile_id == profile.id,

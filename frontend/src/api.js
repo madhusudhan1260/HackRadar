@@ -1,16 +1,60 @@
 /** Thin wrapper around the HackRadar API. */
 
 const BASE = '/api'
+const TOKEN_KEY = 'hackradar_token'
+
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY) || ''
+}
+
+export function setToken(token) {
+  if (token) localStorage.setItem(TOKEN_KEY, token)
+  else localStorage.removeItem(TOKEN_KEY)
+}
+
+/** Raised for any non-2xx response, carrying the server's message. */
+export class ApiError extends Error {
+  constructor(status, message) {
+    super(message)
+    this.status = status
+  }
+}
+
+/** Called when the server rejects our token, so the app can show the login screen. */
+let onUnauthorized = () => {}
+export function setUnauthorizedHandler(handler) {
+  onUnauthorized = handler
+}
 
 async function request(path, options = {}) {
+  const token = getToken()
   const response = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
     ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
   })
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '')
-    throw new Error(`${response.status} ${response.statusText} — ${detail.slice(0, 200)}`)
+
+  if (response.status === 401) {
+    setToken('')
+    onUnauthorized()
   }
+
+  if (!response.ok) {
+    let message = `${response.status} ${response.statusText}`
+    try {
+      const body = await response.json()
+      // FastAPI sends a string detail, or a list of validation errors.
+      if (typeof body.detail === 'string') message = body.detail
+      else if (Array.isArray(body.detail)) message = body.detail[0]?.msg || message
+    } catch {
+      /* keep the status-line fallback */
+    }
+    throw new ApiError(response.status, message)
+  }
+
   return response.status === 204 ? null : response.json()
 }
 
@@ -29,32 +73,48 @@ function qs(params) {
   return query ? `?${query}` : ''
 }
 
+const post = (path, body) => request(path, { method: 'POST', body: JSON.stringify(body) })
+
 export const api = {
   health: () => request('/health'),
+
+  // --- auth ---------------------------------------------------------
+  register: (payload) => post('/auth/register', payload),
+  verifyOtp: (username, code) => post('/auth/verify-otp', { username, code }),
+  resendOtp: (username) => post('/auth/resend-otp', { username }),
+  login: (username, password) => post('/auth/login', { username, password }),
+  logout: () => request('/auth/logout', { method: 'POST' }),
+  me: () => request('/auth/me'),
+  forgotPassword: (username) => post('/auth/forgot-password', { username }),
+  resetPassword: (username, code, newPassword) =>
+    post('/auth/reset-password', { username, code, new_password: newPassword }),
+  checkUsername: (username) => request(`/auth/check-username${qs({ username })}`),
+
+  // --- hackathons ----------------------------------------------------
   stats: () => request('/hackathons/stats'),
   list: (filters) => request(`/hackathons${qs(filters)}`),
   detail: (id) => request(`/hackathons/${id}`),
   deadlines: (params = {}) => request(`/hackathons/deadlines${qs(params)}`),
 
+  // --- profile -------------------------------------------------------
   profile: () => request('/profile'),
-  saveProfile: (payload) =>
-    request('/profile', { method: 'PUT', body: JSON.stringify(payload) }),
+  saveProfile: (payload) => request('/profile', { method: 'PUT', body: JSON.stringify(payload) }),
   recommendations: (params = {}) => request(`/recommendations${qs(params)}`),
 
   bookmarks: () => request('/bookmarks'),
-  addBookmark: (hackathonId) =>
-    request('/bookmarks', {
-      method: 'POST',
-      body: JSON.stringify({ hackathon_id: hackathonId }),
-    }),
-  removeBookmark: (hackathonId) =>
-    request(`/bookmarks/${hackathonId}`, { method: 'DELETE' }),
+  addBookmark: (hackathonId) => post('/bookmarks', { hackathon_id: hackathonId }),
+  removeBookmark: (hackathonId) => request(`/bookmarks/${hackathonId}`, { method: 'DELETE' }),
 
+  // --- sources / notifications ---------------------------------------
   sources: () => request('/sources'),
-  ingest: (sources) =>
-    request('/ingest', {
-      method: 'POST',
-      body: JSON.stringify({ sources: sources ?? null, limit: 200 }),
-    }),
+  ingest: (sources) => post('/ingest', { sources: sources ?? null, limit: 200 }),
   notificationPreview: () => request('/notifications/preview'),
+
+  // --- admin portal ---------------------------------------------------
+  adminOverview: () => request('/admin/overview'),
+  adminUsers: (params = {}) => request(`/admin/users${qs(params)}`),
+  adminLoginEvents: (params = {}) => request(`/admin/login-events${qs(params)}`),
+  adminSetStatus: (userId, newStatus) =>
+    request(`/admin/users/${userId}/status${qs({ new_status: newStatus })}`, { method: 'POST' }),
+  adminForceSignout: (userId) => request(`/admin/users/${userId}/sessions`, { method: 'DELETE' }),
 }

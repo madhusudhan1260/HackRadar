@@ -88,12 +88,95 @@ class Hackathon(Base):
     )
 
 
+class User(Base):
+    """An account. Login is username + password; the phone carries OTPs."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(60), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    phone: Mapped[str] = mapped_column(String(24), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(200))
+
+    role: Mapped[str] = mapped_column(String(20), default="user", index=True)  # user|admin
+    # pending = registered but never completed the one-time phone OTP.
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    phone_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    login_count: Mapped[int] = mapped_column(Integer, default=0)
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    profile: Mapped["Profile"] = relationship(
+        back_populates="user", cascade="all, delete-orphan", uselist=False
+    )
+
+
+class OtpCode(Base):
+    """A one-time code sent to a phone. Stored hashed, never in clear text."""
+
+    __tablename__ = "otp_codes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    purpose: Mapped[str] = mapped_column(String(20), index=True)  # register|reset
+    code_hash: Mapped[str] = mapped_column(String(120))
+    sent_to: Mapped[str] = mapped_column(String(24))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    delivered: Mapped[bool] = mapped_column(Boolean, default=False)
+    delivery_note: Mapped[str] = mapped_column(String(240), default="")
+
+
+class AuthSession(Base):
+    """A logged-in session. The raw token is only ever held by the client."""
+
+    __tablename__ = "auth_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    ip: Mapped[str] = mapped_column(String(60), default="")
+    user_agent: Mapped[str] = mapped_column(String(300), default="")
+
+
+class LoginEvent(Base):
+    """Audit trail. This is what the admin portal reads."""
+
+    __tablename__ = "login_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True
+    )
+    username_tried: Mapped[str] = mapped_column(String(60), default="")
+    event: Mapped[str] = mapped_column(String(30), index=True)  # login|register|reset|logout
+    success: Mapped[bool] = mapped_column(Boolean, default=True)
+    reason: Mapped[str] = mapped_column(String(120), default="")
+    ip: Mapped[str] = mapped_column(String(60), default="")
+    user_agent: Mapped[str] = mapped_column(String(300), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
+
+
 class Profile(Base):
     """The user's skill profile. Drives the AI match score."""
 
     __tablename__ = "profiles"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True, nullable=True
+    )
     name: Mapped[str] = mapped_column(String(120), default="Me")
     email: Mapped[str] = mapped_column(String(240), default="")
     skills: Mapped[list[str]] = mapped_column(JSON, default=list)
@@ -115,6 +198,8 @@ class Profile(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=utcnow, onupdate=utcnow
     )
+
+    user: Mapped["User | None"] = relationship(back_populates="profile")
 
 
 class Bookmark(Base):

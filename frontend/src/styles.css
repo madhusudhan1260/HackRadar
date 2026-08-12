@@ -618,6 +618,9 @@ a { color: inherit; }
 .field input[type='text'],
 .field input[type='email'],
 .field input[type='number'],
+.field input[type='password'],
+.field input[type='tel'],
+.field input[type='search'],
 .field select {
   width: 100%;
   padding: 9px 11px;
@@ -711,3 +714,253 @@ a { color: inherit; }
   .main { padding: 16px; }
   .mobile-toggle { display: inline-flex; }
 }
+
+/* ---------------------------------------------------------------- auth */
+
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(1000px 500px at 50% -10%, rgba(99, 102, 241, 0.16), transparent 70%),
+    var(--bg);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 30px 28px 26px;
+  box-shadow: var(--shadow);
+}
+
+.auth-tag {
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 12px;
+  margin: 4px 0 22px;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-elev-2);
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.auth-tabs button {
+  flex: 1;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 550;
+  transition: all 0.12s;
+}
+
+.auth-tabs button.on {
+  background: var(--accent);
+  color: #fff;
+}
+
+.auth-submit { width: 100%; margin-top: 6px; padding: 11px; }
+
+.auth-forgot { display: block; margin: 14px auto 0; }
+
+.auth-note {
+  font-size: 12.5px;
+  color: var(--text-faint);
+  text-align: center;
+  margin: 14px 0 0;
+  line-height: 1.6;
+}
+
+.auth-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  gap: 10px;
+}
+
+.field-hint { font-size: 11.5px; color: var(--text-faint); margin: 6px 0 0; line-height: 1.5; }
+.field-hint.ok { color: var(--good); }
+.field-hint.bad { color: var(--hot); }
+
+.otp-input {
+  text-align: center;
+  font-size: 26px !important;
+  letter-spacing: 10px;
+  font-weight: 700;
+  padding: 12px !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.notice-banner {
+  background: var(--cool-soft);
+  border: 1px solid var(--cool);
+  color: var(--cool);
+  padding: 10px 13px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+  font-size: 12.5px;
+}
+
+.dev-banner {
+  background: var(--warn-soft);
+  border: 1px dashed var(--warn);
+  color: var(--warn);
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.dev-banner .dev-code {
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: 7px;
+  margin: 7px 0 5px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.dev-banner code {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------- account */
+
+.account-box {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 11px 12px;
+  margin-bottom: 20px;
+  background: var(--bg-elev-2);
+}
+
+.account-name {
+  font-size: 13px;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.account-meta {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin: 2px 0 6px;
+  word-break: break-all;
+}
+
+.role-tag {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* ---------------------------------------------------------------- admin */
+
+.admin-pill {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 800;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--hot-soft);
+  color: var(--hot);
+}
+
+.sms-banner {
+  border: 1px solid var(--warn);
+  background: var(--warn-soft);
+  color: var(--warn);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  margin-bottom: 18px;
+}
+
+.sms-banner.live {
+  border-color: var(--good);
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 760px;
+}
+
+.data-table th {
+  text-align: left;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-faint);
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.data-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.data-table tr:last-child td { border-bottom: 0; }
+.data-table tbody tr:hover { background: var(--bg-elev-2); }
+
+.data-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.data-table .dim { color: var(--text-faint); font-size: 12px; }
+.data-table .mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.data-table td:first-child { display: flex; align-items: center; gap: 7px; }
+
+.row-actions { display: flex; gap: 12px; white-space: nowrap; }
+.link-btn.danger { color: var(--hot); }
+
+.status-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-tag.active { background: var(--good-soft); color: var(--good); }
+.status-tag.pending { background: var(--warn-soft); color: var(--warn); }
+.status-tag.blocked { background: var(--hot-soft); color: var(--hot); }

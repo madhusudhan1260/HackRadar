@@ -1,11 +1,17 @@
-"""Registration, OTP verification, login, and password reset.
+"""Registration, login, and password recovery.
 
-Flow, matching the product rules:
+Flow:
 
-  Register  -> username/password/name/phone -> OTP to phone -> verified.
-               This is the ONLY time a normal user sees an OTP.
-  Login     -> username + password. No OTP.
-  Forgot    -> OTP to the registered phone -> set a new password.
+  Register  -> name, unique username, phone, password. The account is
+               active immediately; there is no phone verification step.
+  Login     -> username + password.
+  Forgot    -> the user is told to email the admin, who resets the
+               password from the admin portal. There is no self-service
+               reset, so no code is ever sent.
+
+Passwords are stored as bcrypt hashes and are never recoverable — not by
+the user, not by the admin, not by this code. Recovery means *setting a
+new one*, which is what the admin portal does.
 """
 from __future__ import annotations
 
@@ -15,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..db import get_db
 from ..deps import get_current_user
 from ..models import User
@@ -22,11 +29,9 @@ from ..schemas import (
     AuthOut,
     ForgotStartIn,
     LoginIn,
-    OtpSentOut,
     RegisterIn,
-    ResetPasswordIn,
+    SupportInfoOut,
     UserOut,
-    VerifyOtpIn,
 )
 from ..security import (
     hash_password,
@@ -39,37 +44,16 @@ from ..security import (
     verify_password,
 )
 from ..services import auth as auth_service
-from ..services.auth import OtpError
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 # Lock an account briefly after repeated wrong passwords.
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
-# How long an unverified registration holds its username and phone.
-PENDING_TTL_HOURS = 24
 
 
 def _naive_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
-
-
-def _purge_user(db: Session, user: User) -> None:
-    """Delete a user and everything hanging off them.
-
-    Rows are removed explicitly rather than relying on ON DELETE CASCADE:
-    SQLite reuses primary keys, so an orphaned OTP row would otherwise be
-    inherited by whoever gets that id next.
-    """
-    from ..models import AuthSession, OtpCode, Profile
-
-    for model in (OtpCode, AuthSession):
-        for row in db.scalars(select(model).where(model.user_id == user.id)).all():
-            db.delete(row)
-    for profile in db.scalars(select(Profile).where(Profile.user_id == user.id)).all():
-        db.delete(profile)
-    db.delete(user)
-    db.commit()
 
 
 def to_user_out(user: User) -> UserOut:
@@ -87,25 +71,14 @@ def to_user_out(user: User) -> UserOut:
     )
 
 
-def _otp_response(user: User, result: dict) -> OtpSentOut:
-    return OtpSentOut(
-        sent=True,
-        phone_masked=mask_phone(user.phone),
-        expires_in=result["expires_in"],
-        resend_in=result["resend_in"],
-        note=result.get("note", ""),
-        dev_code=result.get("dev_code"),
-    )
-
-
 # --------------------------------------------------------------------------
 # Registration
 # --------------------------------------------------------------------------
 
 
-@router.post("/register", response_model=OtpSentOut, status_code=201)
+@router.post("/register", response_model=AuthOut, status_code=201)
 def register(payload: RegisterIn, request: Request, db: Session = Depends(get_db)):
-    """Create a pending account and send the one-time phone verification code."""
+    """Create an account and sign the user straight in."""
     username = normalize_username(payload.username)
     phone = normalize_phone(payload.phone)
     name = payload.name.strip()
@@ -118,30 +91,14 @@ def register(payload: RegisterIn, request: Request, db: Session = Depends(get_db
         if problem:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, problem)
 
-    existing_username = db.scalar(select(User).where(User.username == username))
-    if existing_username is not None:
+    if db.scalar(select(User).where(User.username == username)) is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "That username is already taken.")
 
-    existing_phone = db.scalar(select(User).where(User.phone == phone))
-    if existing_phone is not None:
-        stale = (
-            existing_phone.status == "pending"
-            and (_naive_now() - existing_phone.created_at) > timedelta(hours=PENDING_TTL_HOURS)
+    if db.scalar(select(User).where(User.phone == phone)) is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "That phone number is already registered. Try signing in instead.",
         )
-        if stale:
-            # Long-abandoned signup that never verified — safe to clear out.
-            _purge_user(db, existing_phone)
-        elif existing_phone.status == "pending":
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                "That phone number has a registration waiting for verification. "
-                "Finish it with the code we sent, or request a new code.",
-            )
-        else:
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                "That phone number is already registered. Try signing in instead.",
-            )
 
     user = User(
         username=username,
@@ -149,64 +106,19 @@ def register(payload: RegisterIn, request: Request, db: Session = Depends(get_db
         phone=phone,
         password_hash=hash_password(payload.password),
         role="user",
-        status="pending",
+        status="active",
+        # No OTP step, so the number is recorded but not proven.
+        phone_verified=False,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
 
-    try:
-        result = auth_service.issue_otp(db, user, "register")
-    except OtpError as exc:
-        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, exc.message) from None
-
-    auth_service.log_event(db, "register", True, user=user, reason="otp sent", request=request)
-    return _otp_response(user, result)
-
-
-@router.post("/verify-otp", response_model=AuthOut)
-def verify_registration(payload: VerifyOtpIn, request: Request, db: Session = Depends(get_db)):
-    """Confirm the phone, activate the account, and sign the user in."""
-    username = normalize_username(payload.username)
-    user = db.scalar(select(User).where(User.username == username))
-    if user is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such account.")
-    if user.status == "active":
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This account is already verified. Please sign in.")
-
-    try:
-        auth_service.verify_otp(db, user, "register", payload.code)
-    except OtpError as exc:
-        auth_service.log_event(
-            db, "register", False, user=user, reason=exc.message, request=request
-        )
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, exc.message) from None
-
-    user.status = "active"
-    user.phone_verified = True
-    db.commit()
-
     auth_service.ensure_profile(db, user)
     token = auth_service.create_session(db, user, request)
-    auth_service.log_event(db, "register", True, user=user, reason="verified", request=request)
+    auth_service.log_event(db, "register", True, user=user, reason="account created", request=request)
 
     return AuthOut(token=token, user=to_user_out(user))
-
-
-@router.post("/resend-otp", response_model=OtpSentOut)
-def resend_otp(payload: ForgotStartIn, db: Session = Depends(get_db)):
-    """Resend the registration code. Rate-limited by the OTP service."""
-    user = db.scalar(select(User).where(User.username == normalize_username(payload.username)))
-    if user is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such account.")
-    if user.status == "active":
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "This account is already verified.")
-
-    try:
-        result = auth_service.issue_otp(db, user, "register")
-    except OtpError as exc:
-        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, exc.message) from None
-    return _otp_response(user, result)
 
 
 # --------------------------------------------------------------------------
@@ -216,7 +128,6 @@ def resend_otp(payload: ForgotStartIn, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=AuthOut)
 def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
-    """Username + password. Verified users never see an OTP here."""
     username = normalize_username(payload.username)
     user = db.scalar(select(User).where(User.username == username))
 
@@ -232,7 +143,8 @@ def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
         auth_service.log_event(db, "login", False, user=user, reason="locked", request=request)
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
-            f"Too many failed attempts. Try again in {wait} minute(s), or reset your password.",
+            f"Too many failed attempts. Try again in {wait} minute(s), or use "
+            "'Forgot password' to contact the admin.",
         )
 
     if not verify_password(payload.password, user.password_hash):
@@ -246,11 +158,6 @@ def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
         auth_service.log_event(db, "login", False, user=user, reason=reason, request=request)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect username or password.")
 
-    if user.status == "pending":
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            "Your phone number is not verified yet. Finish registration to continue.",
-        )
     if user.status == "blocked":
         auth_service.log_event(db, "login", False, user=user, reason="blocked", request=request)
         raise HTTPException(status.HTTP_403_FORBIDDEN, "This account has been blocked.")
@@ -290,61 +197,32 @@ def me(user: User = Depends(get_current_user)):
 
 
 # --------------------------------------------------------------------------
-# Forgot password
+# Password recovery — admin assisted
 # --------------------------------------------------------------------------
 
 
-@router.post("/forgot-password", response_model=OtpSentOut)
-def forgot_password(payload: ForgotStartIn, db: Session = Depends(get_db)):
-    """Send a reset code to the phone registered on the account."""
+@router.post("/forgot-password", response_model=SupportInfoOut)
+def forgot_password(payload: ForgotStartIn, request: Request, db: Session = Depends(get_db)):
+    """Record the request and tell the user how to reach the admin.
+
+    Nothing is sent and nothing is changed here. The reply is identical
+    whether or not the username exists, so this cannot be used to discover
+    who has an account.
+    """
     user = db.scalar(select(User).where(User.username == normalize_username(payload.username)))
-    if user is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "No account with that username.")
-    if user.status == "blocked":
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "This account has been blocked.")
+    if user is not None:
+        auth_service.log_event(
+            db, "reset", False, user=user, reason="user requested a reset", request=request
+        )
 
-    try:
-        result = auth_service.issue_otp(db, user, "reset")
-    except OtpError as exc:
-        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, exc.message) from None
-
-    return _otp_response(user, result)
-
-
-@router.post("/reset-password", response_model=AuthOut)
-def reset_password(payload: ResetPasswordIn, request: Request, db: Session = Depends(get_db)):
-    """Verify the reset code and set a new password."""
-    user = db.scalar(select(User).where(User.username == normalize_username(payload.username)))
-    if user is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "No account with that username.")
-
-    problem = password_problem(payload.new_password)
-    if problem:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, problem)
-
-    try:
-        auth_service.verify_otp(db, user, "reset", payload.code)
-    except OtpError as exc:
-        auth_service.log_event(db, "reset", False, user=user, reason=exc.message, request=request)
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, exc.message) from None
-
-    user.password_hash = hash_password(payload.new_password)
-    user.failed_attempts = 0
-    user.locked_until = None
-    # A password reset also proves phone ownership.
-    if user.status == "pending":
-        user.status = "active"
-        user.phone_verified = True
-    db.commit()
-
-    # Anyone holding an old session is signed out — standard after a reset.
-    auth_service.revoke_all_sessions(db, user.id)
-
-    auth_service.ensure_profile(db, user)
-    token = auth_service.create_session(db, user, request)
-    auth_service.log_event(db, "reset", True, user=user, reason="password changed", request=request)
-
-    return AuthOut(token=token, user=to_user_out(user))
+    return SupportInfoOut(
+        support_email=settings.SUPPORT_EMAIL,
+        message=(
+            f"Password resets are handled by the administrator. Email "
+            f"{settings.SUPPORT_EMAIL} from an address you can be reached at, "
+            "including your username, and you'll be sent a new password."
+        ),
+    )
 
 
 @router.get("/check-username")

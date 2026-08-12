@@ -76,7 +76,7 @@ re-ingests automatically every 6 hours while it runs.
 | Feature | Where it lives |
 |---|---|
 | ⚡ Priority ordering (default) | urgency + match + saved, in `routers/hackathons.py` |
-| 🔐 Accounts, OTP signup, admin portal | `routers/auth.py`, `routers/admin_users.py` |
+| 🔐 Accounts + admin portal | `routers/auth.py`, `routers/admin_users.py` |
 | 🔎 All hackathons, one dashboard | `GET /api/hackathons` |
 | 🇮🇳 India / 🌎 Global filter | `region=india\|global` — city + country detection |
 | 🤖 AI/ML, 💻 Web, 🔐 Security, ☁️ Cloud, +10 more | `services/classifier.py` |
@@ -98,57 +98,24 @@ re-ingests automatically every 6 hours while it runs.
 
 | Step | What happens |
 |---|---|
-| **Register** | Name, unique username, phone, password → a 6-digit OTP goes to the phone |
-| **Verify** | Correct OTP activates the account. **This is the only time a user sees an OTP** |
-| **Sign in** | Username + password only — no OTP, ever again |
+| **Register** | Name, unique username, phone, password — the account is active immediately and you're signed straight in |
+| **Sign in** | Username + password |
 | **Wrong password** | Generic error (no user enumeration); 5 failures locks the account for 15 minutes |
-| **Forgot password** | OTP to the registered phone → set a new password → all old sessions are revoked |
+| **Forgot password** | The user is shown the admin's email address. The admin sets a new password from the portal |
 
-Usernames and phone numbers are both unique. An unverified registration holds
-its username for 24 hours, then it's released.
+Usernames and phone numbers are both unique. There is no phone verification
+step, so the number is recorded but not proven.
 
-### Sending real SMS
+### Passwords are never readable
 
-Out of the box `SMS_PROVIDER=console`: **no SMS is sent** — the OTP is printed
-to the backend terminal and shown on screen in a clearly-marked dev banner. That
-lets you develop and demo without paying for anything.
+Passwords are stored as bcrypt hashes, which are irreversible by design. Nobody
+can read a password back — not the user, not the admin, not this code. Helping
+someone who is locked out means **setting a new password**, which the admin
+portal does in one click; it also signs that account out of every device.
 
-For real messages you need your own SMS gateway account:
-
-```bash
-# backend/.env — Twilio (worldwide)
-SMS_PROVIDER=twilio
-TWILIO_ACCOUNT_SID=ACxxxxxxxx
-TWILIO_AUTH_TOKEN=xxxxxxxx
-TWILIO_FROM_NUMBER=+1234567890
-```
-
-```bash
-# backend/.env — MSG91 (cheaper for Indian numbers)
-SMS_PROVIDER=msg91
-MSG91_AUTH_KEY=xxxxxxxx
-MSG91_SENDER_ID=HCKRDR
-MSG91_TEMPLATE_ID=xxxxxxxx
-```
-
-No code changes needed — restart the backend and OTPs go out over SMS, and the
-dev banner disappears automatically.
-
-**Verify it before trusting it:**
-
-```bash
-cd backend && ./venv/bin/python scripts/manage.py test-sms --to +919876543210
-```
-
-That prints which provider is active, whether credentials are complete, and
-sends one real test message. The **Admin portal → SMS delivery** tab then shows
-every code sent, whether the provider accepted it, and the exact error text if
-it refused.
-
-**For Indian numbers you must register a DLT template** with your provider
-(TRAI requirement — not something code can bypass). Without it, MSG91 will
-accept the request and the carrier will silently drop the message, which is the
-single most common reason "the OTP never arrived".
+This is deliberate. Displaying stored passwords would expose them to anyone who
+reached the admin screen or the database, and because people reuse passwords,
+a leak here would follow them to their other accounts.
 
 ### Two doors on the login page
 
@@ -167,9 +134,8 @@ everyone else even if they call it directly. It shows:
 - **Login activity** — every sign-in, registration, and password reset, with
   success/failure, the reason for failures, and the source IP
 - **Live counters** — total/active/pending users, logins and failed logins today
-- **SMS delivery** — every OTP sent, whether the provider accepted it, and the
-  failure reason if not. Codes are stored hashed and are never shown here
-- **Actions** — block/unblock an account, or sign it out of every device
+- **Actions** — reset a password, block/unblock an account, or sign it out of
+  every device
 
 Normal users only ever see their own masked phone (`+91 ••••• 43210`).
 
@@ -262,7 +228,6 @@ whether they're also delivered to you.
 ./venv/bin/python scripts/manage.py create-admin        # create/update THE admin
 ./venv/bin/python scripts/manage.py users               # list registered accounts
 ./venv/bin/python scripts/manage.py delete-user <name>  # remove a normal account
-./venv/bin/python scripts/manage.py test-sms --to +91…  # verify SMS delivery
 ./venv/bin/python scripts/manage.py reset               # drop and recreate tables
 ```
 

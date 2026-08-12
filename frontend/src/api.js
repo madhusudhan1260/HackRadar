@@ -80,15 +80,11 @@ export const api = {
 
   // --- auth ---------------------------------------------------------
   register: (payload) => post('/auth/register', payload),
-  verifyOtp: (username, code) => post('/auth/verify-otp', { username, code }),
-  resendOtp: (username) => post('/auth/resend-otp', { username }),
   login: (username, password, asAdmin = false) =>
     post('/auth/login', { username, password, as_admin: asAdmin }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   me: () => request('/auth/me'),
   forgotPassword: (username) => post('/auth/forgot-password', { username }),
-  resetPassword: (username, code, newPassword) =>
-    post('/auth/reset-password', { username, code, new_password: newPassword }),
   checkUsername: (username) => request(`/auth/check-username${qs({ username })}`),
 
   // --- hackathons ----------------------------------------------------
@@ -115,7 +111,8 @@ export const api = {
   adminOverview: () => request('/admin/overview'),
   adminUsers: (params = {}) => request(`/admin/users${qs(params)}`),
   adminLoginEvents: (params = {}) => request(`/admin/login-events${qs(params)}`),
-  adminOtpLog: (params = {}) => request(`/admin/otp-log${qs(params)}`),
+  adminResetPassword: (userId, newPassword) =>
+    post(`/admin/users/${userId}/reset-password`, { new_password: newPassword }),
   adminSetStatus: (userId, newStatus) =>
     request(`/admin/users/${userId}/status${qs({ new_status: newStatus })}`, { method: 'POST' }),
   adminForceSignout: (userId) => request(`/admin/users/${userId}/sessions`, { method: 'DELETE' }),

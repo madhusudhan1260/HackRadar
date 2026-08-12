@@ -1655,3 +1655,40 @@ a { color: inherit; }
   }
   .auth-card { transform: none !important; }
 }
+
+/* --- password recovery notice on the login card --------------------- */
+
+.support-card {
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 16px;
+  text-align: center;
+  animation: card-in 0.4s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+.support-card .support-icon { font-size: 24px; margin-bottom: 6px; }
+
+.support-card p {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.support-mail {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--accent-text);
+  text-decoration: none;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(10, 14, 23, 0.55);
+  border: 1px solid var(--accent);
+  transition: transform 0.14s, filter 0.14s;
+  word-break: break-all;
+}
+
+.support-mail:hover { transform: translateY(-1px); filter: brightness(1.15); }

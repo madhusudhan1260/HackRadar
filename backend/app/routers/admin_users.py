@@ -14,8 +14,14 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..deps import require_admin
 from ..models import AuthSession, Bookmark, LoginEvent, OtpCode, Profile, User
-from ..schemas import AdminOverviewOut, AdminUserOut, LoginEventOut, OtpLogOut
-from ..security import mask_phone
+from ..schemas import (
+    AdminOverviewOut,
+    AdminResetPasswordIn,
+    AdminUserOut,
+    LoginEventOut,
+    OtpLogOut,
+)
+from ..security import hash_password, mask_phone, password_problem
 from ..services import auth as auth_service
 from ..services.sms import provider_status
 
@@ -188,6 +194,50 @@ def otp_log(db: Session = Depends(get_db), limit: int = Query(50, ge=1, le=200))
         )
         for c in codes
     ]
+
+
+@router.post("/users/{user_id}/reset-password")
+def reset_user_password(
+    user_id: int,
+    payload: AdminResetPasswordIn,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Set a new password for a user who has emailed asking for help.
+
+    Existing passwords cannot be read back — they are bcrypt hashes. This
+    replaces the password and signs the account out everywhere, so the
+    only person who knows the new one is whoever you hand it to.
+    """
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such user.")
+
+    problem = password_problem(payload.new_password)
+    if problem:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, problem)
+
+    user.password_hash = hash_password(payload.new_password)
+    user.failed_attempts = 0
+    user.locked_until = None
+    db.commit()
+
+    revoked = auth_service.revoke_all_sessions(db, user.id)
+    auth_service.log_event(
+        db,
+        "reset",
+        True,
+        user=user,
+        reason=f"password set by admin {admin.username}",
+    )
+
+    return {
+        "id": user.id,
+        "username": user.username,
+        "phone": user.phone,
+        "sessions_revoked": revoked,
+        "message": f"New password set for {user.username}. Send it to them privately.",
+    }
 
 
 @router.post("/users/{user_id}/status")

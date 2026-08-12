@@ -121,19 +121,15 @@ class RegisterIn(BaseModel):
     password: str = Field(min_length=6, max_length=200)
 
 
-class OtpSentOut(BaseModel):
-    sent: bool
-    phone_masked: str
-    expires_in: int
-    resend_in: int
-    note: str = ""
-    #: Only populated by the console SMS provider, for local testing.
-    dev_code: str | None = None
+class SupportInfoOut(BaseModel):
+    """Returned by forgot-password: who to contact, and what to say."""
+
+    support_email: str
+    message: str
 
 
-class VerifyOtpIn(BaseModel):
-    username: str
-    code: str = Field(min_length=4, max_length=10)
+class AdminResetPasswordIn(BaseModel):
+    new_password: str = Field(min_length=6, max_length=200)
 
 
 class LoginIn(BaseModel):
@@ -162,12 +158,6 @@ class OtpLogOut(BaseModel):
 
 class ForgotStartIn(BaseModel):
     username: str
-
-
-class ResetPasswordIn(BaseModel):
-    username: str
-    code: str = Field(min_length=4, max_length=10)
-    new_password: str = Field(min_length=6, max_length=200)
 
 
 class UserOut(BaseModel):

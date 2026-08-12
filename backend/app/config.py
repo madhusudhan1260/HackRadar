@@ -68,7 +68,12 @@ class Settings:
     SESSION_TTL_HOURS: int = int(os.getenv("SESSION_TTL_HOURS", "168"))  # 7 days
     MIN_PASSWORD_LENGTH: int = int(os.getenv("MIN_PASSWORD_LENGTH", "8"))
 
-    # --- OTP ------------------------------------------------------------
+    # --- Support ---------------------------------------------------------
+    # Shown on the "forgot password" screen. Password resets are handled by
+    # the admin rather than automatically.
+    SUPPORT_EMAIL: str = os.getenv("SUPPORT_EMAIL", "madhuusudhann01@gmail.com")
+
+    # --- OTP (retained for the notifier; registration no longer uses it) --
     OTP_LENGTH: int = int(os.getenv("OTP_LENGTH", "6"))
     OTP_TTL_MINUTES: int = int(os.getenv("OTP_TTL_MINUTES", "5"))
     OTP_MAX_ATTEMPTS: int = int(os.getenv("OTP_MAX_ATTEMPTS", "5"))

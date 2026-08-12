@@ -88,8 +88,14 @@ def cmd_notify(args) -> None:
 
 
 def cmd_create_admin(args) -> None:
-    """Create (or promote) the admin account for the separate admin portal."""
+    """Create, update or promote THE admin account.
+
+    The app is deliberately single-admin: exactly one account may hold the
+    admin role. Creating another requires --replace, which demotes the
+    current one, so admin access can never quietly spread.
+    """
     import getpass
+    import os
 
     from sqlalchemy import select as sa_select
 
@@ -102,7 +108,7 @@ def cmd_create_admin(args) -> None:
         phone_problem,
         username_problem,
     )
-    from app.services.auth import ensure_profile
+    from app.services.auth import ensure_profile, revoke_all_sessions
 
     init_db()
     db = SessionLocal()
@@ -113,29 +119,18 @@ def cmd_create_admin(args) -> None:
             print(f"error: {problem}")
             return
 
-        existing = db.scalar(sa_select(User).where(User.username == username))
-
-        if existing is not None:
-            existing.role = "admin"
-            existing.status = "active"
-            existing.phone_verified = True
-            db.commit()
-            print(f"Promoted existing account '{username}' to admin.")
+        existing_admins = db.scalars(sa_select(User).where(User.role == "admin")).all()
+        others = [a for a in existing_admins if a.username != username]
+        if others and not args.replace:
+            print("error: an admin already exists — " + ", ".join(a.username for a in others))
+            print("       Re-run with --replace to demote it and take over admin access.")
             return
 
-        name = args.name or input("Full name: ")
-        phone = normalize_phone(args.phone or input("Phone (e.g. +919876543210): "))
-        problem = phone_problem(phone)
-        if problem:
-            print(f"error: {problem}")
-            return
-        if db.scalar(sa_select(User).where(User.phone == phone)) is not None:
-            print("error: that phone number is already registered.")
-            return
-
-        # Read the password from a prompt so it never lands in shell history.
-        password = args.password or getpass.getpass("Password: ")
-        if not args.password:
+        # Password: prefer the environment so it never reaches shell history
+        # or the process list.
+        password = os.environ.get("HACKRADAR_ADMIN_PASSWORD") or args.password
+        if not password:
+            password = getpass.getpass("Password: ")
             if password != getpass.getpass("Confirm password: "):
                 print("error: passwords do not match.")
                 return
@@ -144,22 +139,111 @@ def cmd_create_admin(args) -> None:
             print(f"error: {problem}")
             return
 
-        admin = User(
-            username=username,
-            name=name.strip(),
-            phone=phone,
-            password_hash=hash_password(password),
-            role="admin",
-            status="active",
-            phone_verified=True,
-        )
-        db.add(admin)
-        db.commit()
-        db.refresh(admin)
-        ensure_profile(db, admin)
+        account = db.scalar(sa_select(User).where(User.username == username))
 
-        print(f"\nAdmin created: {username} ({phone})")
-        print("Sign in at the normal login page — the Admin tab appears automatically.")
+        if account is not None:
+            account.role = "admin"
+            account.status = "active"
+            account.phone_verified = True
+            account.password_hash = hash_password(password)
+            account.failed_attempts = 0
+            account.locked_until = None
+            if args.name:
+                account.name = args.name.strip()
+            if args.phone:
+                phone = normalize_phone(args.phone)
+                problem = phone_problem(phone)
+                if problem:
+                    print(f"error: {problem}")
+                    return
+                clash = db.scalar(
+                    sa_select(User).where(User.phone == phone, User.id != account.id)
+                )
+                if clash is not None:
+                    print(f"error: {phone} already belongs to '{clash.username}'.")
+                    return
+                account.phone = phone
+            db.commit()
+            # A credential change invalidates every existing session.
+            revoke_all_sessions(db, account.id)
+            ensure_profile(db, account)
+            print(f"Updated admin account '{username}' ({account.phone}).")
+        else:
+            name = args.name or input("Full name: ")
+            phone = normalize_phone(args.phone or input("Phone (e.g. +919876543210): "))
+            problem = phone_problem(phone)
+            if problem:
+                print(f"error: {problem}")
+                return
+            if db.scalar(sa_select(User).where(User.phone == phone)) is not None:
+                print("error: that phone number is already registered.")
+                return
+
+            account = User(
+                username=username,
+                name=name.strip(),
+                phone=phone,
+                password_hash=hash_password(password),
+                role="admin",
+                status="active",
+                phone_verified=True,
+            )
+            db.add(account)
+            db.commit()
+            db.refresh(account)
+            ensure_profile(db, account)
+            print(f"Admin created: {username} ({phone})")
+
+        # Demote anyone else who held admin, and cut their sessions.
+        for other in others:
+            other.role = "user"
+            db.commit()
+            revoke_all_sessions(db, other.id)
+            print(f"Demoted '{other.username}' to a normal user.")
+
+        print("\nThis is now the only account with admin access.")
+        print("Sign in via the Admin tab on the login page.")
+    finally:
+        db.close()
+
+
+def cmd_delete_user(args) -> None:
+    """Remove an account and everything attached to it."""
+    from sqlalchemy import select as sa_select
+
+    from app.models import AuthSession, Bookmark, OtpCode, Profile, User
+    from app.security import normalize_username
+
+    init_db()
+    db = SessionLocal()
+    try:
+        username = normalize_username(args.username)
+        user = db.scalar(sa_select(User).where(User.username == username))
+        if user is None:
+            print(f"error: no account named '{username}'.")
+            return
+        if user.role == "admin":
+            print("error: refusing to delete the admin account.")
+            return
+
+        if not args.yes:
+            answer = input(f"Delete '{username}' ({user.name}, {user.phone})? [y/N] ")
+            if answer.strip().lower() != "y":
+                print("Aborted.")
+                return
+
+        for model in (OtpCode, AuthSession):
+            for row in db.scalars(sa_select(model).where(model.user_id == user.id)).all():
+                db.delete(row)
+        for profile in db.scalars(sa_select(Profile).where(Profile.user_id == user.id)).all():
+            for mark in db.scalars(
+                sa_select(Bookmark).where(Bookmark.profile_id == profile.id)
+            ).all():
+                db.delete(mark)
+            db.delete(profile)
+        db.delete(user)
+        db.commit()
+        print(f"Deleted '{username}'.")
     finally:
         db.close()
 
@@ -261,9 +345,20 @@ def main() -> None:
     p_admin.add_argument("--phone")
     p_admin.add_argument(
         "--password",
-        help="Skips the prompt. Avoid: it lands in your shell history.",
+        help="Skips the prompt. Prefer HACKRADAR_ADMIN_PASSWORD — an argument "
+        "lands in your shell history and the process list.",
+    )
+    p_admin.add_argument(
+        "--replace",
+        action="store_true",
+        help="Demote any existing admin so this account takes over.",
     )
     p_admin.set_defaults(func=cmd_create_admin)
+
+    p_del = sub.add_parser("delete-user", help="Delete a (non-admin) account")
+    p_del.add_argument("username")
+    p_del.add_argument("--yes", action="store_true")
+    p_del.set_defaults(func=cmd_delete_user)
 
     p_sms = sub.add_parser("test-sms", help="Check SMS provider config and send a test")
     p_sms.add_argument("--to", help="Destination phone number, e.g. +919876543210")

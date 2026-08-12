@@ -38,6 +38,35 @@ def _scheduled_ingest() -> None:
         db.close()
 
 
+def _check_admin_integrity() -> None:
+    """The app is single-admin by design. Shout if that ever stops being true.
+
+    Registration can only ever create role='user', so more than one admin
+    means someone edited the database directly — worth knowing about.
+    """
+    from .models import User
+
+    db = SessionLocal()
+    try:
+        admins = db.scalars(select(User).where(User.role == "admin")).all()
+        if not admins:
+            log.warning(
+                "No admin account exists. Create one with: "
+                "python scripts/manage.py create-admin"
+            )
+        elif len(admins) > 1:
+            log.error(
+                "SECURITY: %s accounts hold the admin role (%s). Expected exactly "
+                "one. Demote the extras with create-admin --replace.",
+                len(admins),
+                ", ".join(a.username for a in admins),
+            )
+        else:
+            log.info("Admin account: %s", admins[0].username)
+    finally:
+        db.close()
+
+
 def _bootstrap_if_empty() -> None:
     """First run with an empty table: load the offline seed set immediately."""
     db = SessionLocal()
@@ -55,6 +84,7 @@ async def lifespan(app: FastAPI):
     global scheduler
     init_db()
     _bootstrap_if_empty()
+    _check_admin_integrity()
 
     if settings.RUN_SCHEDULER:
         scheduler = BackgroundScheduler(daemon=True)

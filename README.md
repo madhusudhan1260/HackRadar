@@ -51,8 +51,14 @@ cd frontend && npm install && npm run dev
 cd backend && ./venv/bin/python scripts/manage.py create-admin
 ```
 
-It prompts for username, name, phone and password. Sign in normally — the
-**Admin portal** tab appears automatically for admin accounts.
+It prompts for username, name, phone and password — the password is read from a
+hidden prompt so it never reaches your shell history. Sign in through the
+**Admin** tab on the login page.
+
+The app is **single-admin by design**: exactly one account may hold the admin
+role. Registration can only ever create normal users, and taking over admin
+requires `--replace`, which demotes the previous holder and kills its sessions.
+The server logs a loud error at startup if it ever finds more than one admin.
 
 **4. Pull in real hackathons**
 
@@ -253,8 +259,10 @@ whether they're also delivered to you.
 ./venv/bin/python scripts/manage.py ingest --source mlh # run just one
 ./venv/bin/python scripts/manage.py stats               # what's in the database
 ./venv/bin/python scripts/manage.py notify --dry-run    # preview alerts
-./venv/bin/python scripts/manage.py create-admin        # create/promote an admin
+./venv/bin/python scripts/manage.py create-admin        # create/update THE admin
 ./venv/bin/python scripts/manage.py users               # list registered accounts
+./venv/bin/python scripts/manage.py delete-user <name>  # remove a normal account
+./venv/bin/python scripts/manage.py test-sms --to +91…  # verify SMS delivery
 ./venv/bin/python scripts/manage.py reset               # drop and recreate tables
 ```
 

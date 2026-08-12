@@ -92,7 +92,7 @@ re-ingests automatically every 6 hours while it runs.
 
 ---
 
-## Accounts, OTP and the admin portal
+## Accounts and the admin portal
 
 ### How sign-in works
 
@@ -141,11 +141,11 @@ Normal users only ever see their own masked phone (`+91 ••••• 43210`).
 
 ### Security notes
 
-Passwords are bcrypt hashes; OTPs and session tokens are stored only as
-peppered SHA-256 digests. OTPs expire in 5 minutes, allow 5 attempts, enforce a
-60-second resend cooldown and a 5-per-hour cap per account — SMS costs real
-money and OTP endpoints get abused. Every account has its own profile and
-bookmarks.
+Passwords are bcrypt hashes; session tokens are stored only as peppered
+SHA-256 digests, so the database never holds anything that can be replayed.
+Sessions expire after 7 days and are revoked on any password change. Repeated
+wrong passwords lock an account for 15 minutes. Every account has its own
+profile and bookmarks.
 
 Before deploying: set a real `SECRET_KEY`, switch to Postgres, and serve over
 HTTPS. Phone numbers are personal data — treat the database accordingly.

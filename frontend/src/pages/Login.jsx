@@ -35,7 +35,7 @@ export default function Login() {
   const [support, setSupport] = useState(null)
 
   const [form, setForm] = useState({
-    name: '', username: '', phone: '', password: '', code: '', newPassword: '',
+    name: '', username: '', email: '', phone: '', password: '', code: '', newPassword: '',
   })
 
   // Details of the code we just sent: masked phone, resend timer, and the
@@ -143,6 +143,7 @@ export default function Login() {
         await api.register({
           name: form.name,
           username: form.username,
+          email: form.email,
           phone: form.phone,
           password: form.password,
         }),
@@ -285,7 +286,7 @@ export default function Login() {
                 : mode === 'signup'
                   ? 'Create your account'
                   : mode === 'otp'
-                    ? otpPurpose === 'reset' ? 'Reset your password' : 'Verify your phone'
+                    ? otpPurpose === 'reset' ? 'Reset your password' : 'Verify your email'
                     : mode === 'forgot'
                       ? 'Forgot your password?'
                       : 'Welcome back'}
@@ -294,11 +295,11 @@ export default function Login() {
               {isAdmin
                 ? 'Restricted access. Admin credentials only.'
                 : mode === 'signup'
-                  ? 'We text a one-time code to confirm your number.'
+                  ? 'We email a one-time code to confirm your address.'
                   : mode === 'otp'
-                    ? `Enter the code we sent to ${otp?.phone_masked || 'your phone'}.`
+                    ? `Enter the code we emailed to ${otp?.sent_to_masked || 'your inbox'}.`
                     : mode === 'forgot'
-                      ? "We'll text a code to your registered number."
+                      ? "We'll email a code to your registered address."
                       : 'Sign in to your hackathon dashboard.'}
             </p>
           </div>
@@ -326,11 +327,11 @@ export default function Login() {
 
           {otp?.dev_code && mode === 'otp' && (
             <div className="dev-banner">
-              <strong>Development mode — no SMS was sent.</strong>
+              <strong>Development mode — no email was sent.</strong>
               <div className="dev-code">{otp.dev_code}</div>
               <span>
-                Also printed in the backend log. Add an SMS provider in{' '}
-                <code>.env</code> to deliver real messages.
+                Also printed in the backend log. Set <code>SMTP_*</code> in{' '}
+                <code>.env</code> to deliver real email.
               </span>
             </div>
           )}
@@ -382,6 +383,24 @@ export default function Login() {
 
             {mode === 'signup' && (
               <div className="field">
+                <label>Email address</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  autoComplete="email"
+                  placeholder="you@gmail.com"
+                  onChange={(event) => set({ email: event.target.value })}
+                  required
+                />
+                <p className="field-hint">
+                  We email a one-time code here to confirm it, and use it if you
+                  ever forget your password.
+                </p>
+              </div>
+            )}
+
+            {mode === 'signup' && (
+              <div className="field">
                 <label>Phone number</label>
                 <input
                   type="tel"
@@ -392,8 +411,7 @@ export default function Login() {
                   required
                 />
                 <p className="field-hint">
-                  We text a one-time code here. You will not need a code again
-                  after this.
+                  So the organiser can reach you about your account.
                 </p>
               </div>
             )}

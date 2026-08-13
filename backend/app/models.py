@@ -97,6 +97,12 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(60), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(120))
     phone: Mapped[str] = mapped_column(String(24), unique=True, index=True)
+    # Verification codes go here. Nullable so accounts created before email
+    # was introduced still load; new registrations always set it.
+    email: Mapped[str | None] = mapped_column(
+        String(240), unique=True, index=True, nullable=True
+    )
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     password_hash: Mapped[str] = mapped_column(String(200))
 
     role: Mapped[str] = mapped_column(String(20), default="user", index=True)  # user|admin

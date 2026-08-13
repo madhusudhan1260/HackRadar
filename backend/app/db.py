@@ -51,6 +51,8 @@ def get_db() -> Iterator[Session]:
 # This is a stopgap for local development — move to Alembic before deploying.
 _ADDED_COLUMNS: list[tuple[str, str, str]] = [
     ("profiles", "user_id", "INTEGER"),
+    ("users", "email", "VARCHAR(240)"),
+    ("users", "email_verified", "BOOLEAN DEFAULT 0"),
 ]
 
 

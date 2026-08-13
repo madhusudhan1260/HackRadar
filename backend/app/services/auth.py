@@ -15,7 +15,7 @@ from ..security import (
     hash_secret,
     verify_secret,
 )
-from . import sms
+from . import mailer
 
 
 def utcnow() -> datetime:
@@ -66,13 +66,19 @@ def issue_otp(db: Session, user: User, purpose: str) -> dict:
             old.consumed_at = now
 
     code = generate_otp()
-    result = sms.send_otp(user.phone, code, purpose)
+    destination = user.email or ""
+    if not destination:
+        raise OtpError(
+            "This account has no email address on file. Ask the administrator "
+            "to reset your password instead."
+        )
+    result = mailer.send_otp(destination, code, purpose)
 
     record = OtpCode(
         user_id=user.id,
         purpose=purpose,
         code_hash=hash_secret(code),
-        sent_to=user.phone,
+        sent_to=destination,
         expires_at=now + timedelta(minutes=settings.OTP_TTL_MINUTES),
         delivered=result.delivered,
         delivery_note=result.note,

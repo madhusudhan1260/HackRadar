@@ -100,6 +100,37 @@ def phone_problem(phone: str) -> str | None:
     return None
 
 
+# --------------------------------------------------------------------------
+# Email
+# --------------------------------------------------------------------------
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$")
+
+
+def normalize_email(raw: str) -> str:
+    """Lowercase and trim. The local part is case-sensitive in theory, but
+    no mail provider anyone uses treats it that way, and folding avoids
+    duplicate accounts for the same inbox."""
+    return (raw or "").strip().lower()
+
+
+def email_problem(email: str) -> str | None:
+    if not _EMAIL_RE.match(email or ""):
+        return "Enter a valid email address, e.g. you@gmail.com."
+    if len(email) > 240:
+        return "That email address is too long."
+    return None
+
+
+def mask_email(email: str) -> str:
+    """'madhusudhan@gmail.com' -> 'mad•••••@gmail.com'."""
+    if not email or "@" not in email:
+        return email or ""
+    local, _, domain = email.partition("@")
+    head = local[:3] if len(local) > 3 else local[:1]
+    return f"{head}{'•' * max(3, len(local) - len(head))}@{domain}"
+
+
 def mask_phone(phone: str) -> str:
     """'+919876543210' -> '+91 ••••• 43210'. Used outside the admin portal."""
     if not phone or len(phone) < 6:

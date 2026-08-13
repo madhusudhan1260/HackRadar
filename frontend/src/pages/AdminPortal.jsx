@@ -155,6 +155,7 @@ export default function AdminPortal({ toast }) {
                 <tr>
                   <th>Name</th>
                   <th>Username</th>
+                  <th>Email</th>
                   <th>Phone</th>
                   <th>Status</th>
                   <th className="num">Logins</th>
@@ -171,6 +172,7 @@ export default function AdminPortal({ toast }) {
                       {user.role === 'admin' && <span className="role-tag">admin</span>}
                     </td>
                     <td className="mono">{user.username}</td>
+                    <td className="mono">{user.email || <span className="dim">—</span>}</td>
                     <td className="mono">{user.phone}</td>
                     <td>
                       <span className={`status-tag ${user.status}`}>{user.status}</span>
@@ -209,7 +211,7 @@ export default function AdminPortal({ toast }) {
                 ))}
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="dim" style={{ textAlign: 'center', padding: 30 }}>
+                    <td colSpan={9} className="dim" style={{ textAlign: 'center', padding: 30 }}>
                       No users match.
                     </td>
                   </tr>
@@ -295,7 +297,7 @@ export default function AdminPortal({ toast }) {
               {otpRows.map((row) => (
                 <tr key={row.id}>
                   <td className="dim">{when(row.created_at)}</td>
-                  <td className="mono">{row.phone}</td>
+                  <td className="mono">{row.sent_to}</td>
                   <td>{row.name || <span className="dim">—</span>}</td>
                   <td className="mono">{row.purpose}</td>
                   <td>

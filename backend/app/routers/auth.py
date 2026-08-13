@@ -2,16 +2,17 @@
 
 Flow:
 
-  Register  -> details -> one-time code to the phone -> verified & signed in.
+  Register  -> details -> one-time code emailed -> verified & signed in.
                This is the ONLY time a normal user sees a signup code.
   Login     -> username + password. No code.
-  Forgot    -> code to the registered phone -> set a new password.
+  Forgot    -> code emailed to the registered address -> new password.
 
 Passwords are stored as bcrypt hashes and are never recoverable. "Recovery"
 always means setting a new one.
 
-Codes are stored hashed too, expire quickly, and are rate limited — SMS
-costs money and OTP endpoints are a favourite target for abuse.
+Codes go by email rather than SMS: email costs nothing, has no per-country
+regulatory hurdle, and reaches anyone. Codes are stored hashed, expire
+quickly, and are rate limited — OTP endpoints attract abuse.
 """
 from __future__ import annotations
 
@@ -36,8 +37,11 @@ from ..schemas import (
     VerifyOtpIn,
 )
 from ..security import (
+    email_problem,
     hash_password,
+    mask_email,
     mask_phone,
+    normalize_email,
     normalize_phone,
     normalize_username,
     password_problem,
@@ -53,7 +57,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 # Lock an account briefly after repeated wrong passwords.
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
-# How long an unverified registration holds its username and phone.
+# How long an unverified registration holds its username, email and phone.
 PENDING_TTL_HOURS = 24
 
 
@@ -66,6 +70,7 @@ def to_user_out(user: User) -> UserOut:
         id=user.id,
         username=user.username,
         name=user.name,
+        email=user.email or "",
         phone_masked=mask_phone(user.phone),
         role=user.role,
         status=user.status,
@@ -79,7 +84,7 @@ def to_user_out(user: User) -> UserOut:
 def _otp_response(user: User, result: dict) -> OtpSentOut:
     return OtpSentOut(
         sent=True,
-        phone_masked=mask_phone(user.phone),
+        sent_to_masked=mask_email(user.email or ""),
         expires_in=result["expires_in"],
         resend_in=result["resend_in"],
         note=result.get("note", ""),
@@ -111,13 +116,15 @@ def _purge_user(db: Session, user: User) -> None:
 
 @router.post("/register", response_model=OtpSentOut, status_code=201)
 def register(payload: RegisterIn, request: Request, db: Session = Depends(get_db)):
-    """Create a pending account and text the verification code."""
+    """Create a pending account and email the verification code."""
     username = normalize_username(payload.username)
     phone = normalize_phone(payload.phone)
+    email = normalize_email(payload.email)
     name = payload.name.strip()
 
     for problem in (
         username_problem(username),
+        email_problem(email),
         phone_problem(phone),
         password_problem(payload.password),
     ):
@@ -126,6 +133,12 @@ def register(payload: RegisterIn, request: Request, db: Session = Depends(get_db
 
     if db.scalar(select(User).where(User.username == username)) is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "That username is already taken.")
+
+    if db.scalar(select(User).where(User.email == email)) is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "That email address is already registered. Try signing in instead.",
+        )
 
     existing_phone = db.scalar(select(User).where(User.phone == phone))
     if existing_phone is not None:
@@ -152,6 +165,7 @@ def register(payload: RegisterIn, request: Request, db: Session = Depends(get_db
         username=username,
         name=name,
         phone=phone,
+        email=email,
         password_hash=hash_password(payload.password),
         role="user",
         status="pending",
@@ -171,7 +185,7 @@ def register(payload: RegisterIn, request: Request, db: Session = Depends(get_db
 
 @router.post("/verify-otp", response_model=AuthOut)
 def verify_registration(payload: VerifyOtpIn, request: Request, db: Session = Depends(get_db)):
-    """Confirm the phone, activate the account, and sign the user in."""
+    """Confirm the email, activate the account, and sign the user in."""
     username = normalize_username(payload.username)
     user = db.scalar(select(User).where(User.username == username))
     if user is None:
@@ -188,7 +202,7 @@ def verify_registration(payload: VerifyOtpIn, request: Request, db: Session = De
         raise HTTPException(status.HTTP_400_BAD_REQUEST, exc.message) from None
 
     user.status = "active"
-    user.phone_verified = True
+    user.email_verified = True
     db.commit()
 
     auth_service.ensure_profile(db, user)
@@ -254,7 +268,7 @@ def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
     if user.status == "pending":
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
-            "Your phone number is not verified yet. Finish registration to continue.",
+            "Your email address is not verified yet. Finish registration to continue.",
         )
     if user.status == "blocked":
         auth_service.log_event(db, "login", False, user=user, reason="blocked", request=request)
@@ -299,7 +313,7 @@ def me(user: User = Depends(get_current_user)):
 
 @router.post("/forgot-password", response_model=OtpSentOut)
 def forgot_password(payload: ForgotStartIn, request: Request, db: Session = Depends(get_db)):
-    """Text a reset code to the phone registered on the account."""
+    """Email a reset code to the address registered on the account."""
     user = db.scalar(select(User).where(User.username == normalize_username(payload.username)))
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No account with that username.")
@@ -335,10 +349,10 @@ def reset_password(payload: ResetPasswordIn, request: Request, db: Session = Dep
     user.password_hash = hash_password(payload.new_password)
     user.failed_attempts = 0
     user.locked_until = None
-    # Completing a reset also proves the user holds the phone.
+    # Completing a reset also proves the user holds the inbox.
     if user.status == "pending":
         user.status = "active"
-        user.phone_verified = True
+        user.email_verified = True
     db.commit()
 
     # Anyone holding an old session is signed out — standard after a reset.

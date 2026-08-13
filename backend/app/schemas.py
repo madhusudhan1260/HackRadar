@@ -117,6 +117,7 @@ class ProfileOut(BaseModel):
 class RegisterIn(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     username: str = Field(min_length=3, max_length=30)
+    email: str = Field(min_length=5, max_length=240)
     phone: str = Field(min_length=8, max_length=20)
     password: str = Field(min_length=6, max_length=200)
 
@@ -125,7 +126,8 @@ class OtpSentOut(BaseModel):
     """A code has been sent. Never carries the code itself in production."""
 
     sent: bool
-    phone_masked: str
+    #: Masked destination the code went to, e.g. 'mad•••••@gmail.com'.
+    sent_to_masked: str
     expires_in: int
     resend_in: int
     note: str = ""
@@ -172,7 +174,7 @@ class OtpLogOut(BaseModel):
     id: int
     username: str = ""
     name: str = ""
-    phone: str = ""
+    sent_to: str = ""
     purpose: str
     delivered: bool
     delivery_note: str = ""
@@ -192,6 +194,7 @@ class UserOut(BaseModel):
     id: int
     username: str
     name: str
+    email: str = ""
     phone_masked: str = ""
     role: str
     status: str
@@ -207,7 +210,7 @@ class AuthOut(BaseModel):
 
 
 class AdminUserOut(UserOut):
-    """Admin view — the full phone number, plus activity counters."""
+    """Admin view — full phone number and email, plus activity counters."""
 
     phone: str
     active_sessions: int = 0

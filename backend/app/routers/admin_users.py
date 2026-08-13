@@ -164,7 +164,7 @@ def login_events(
 
 @router.get("/otp-log", response_model=list[OtpLogOut])
 def otp_log(db: Session = Depends(get_db), limit: int = Query(50, ge=1, le=200)):
-    """Recent OTP sends and whether delivery succeeded.
+    """Recent verification-code sends and whether delivery succeeded.
 
     Codes themselves are stored only as hashes and are never returned here.
     """
@@ -183,7 +183,7 @@ def otp_log(db: Session = Depends(get_db), limit: int = Query(50, ge=1, le=200))
             id=c.id,
             username=users[c.user_id].username if c.user_id in users else "",
             name=users[c.user_id].name if c.user_id in users else "",
-            phone=c.sent_to,
+            sent_to=c.sent_to,
             purpose=c.purpose,
             delivered=c.delivered,
             delivery_note=c.delivery_note,

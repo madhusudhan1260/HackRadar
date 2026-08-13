@@ -1431,11 +1431,12 @@ a { color: inherit; }
 
 .radar-mark {
   position: relative;
-  border-radius: 22%;
+  /* The plate and its corners are drawn inside the SVG now; the wrapper
+     only carries the glow. */
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.45);
+  filter: drop-shadow(0 2px 10px rgba(99, 102, 241, 0.5));
 }
 
 /* Soft pulse so the mark feels "live" even at rest. */
@@ -1443,7 +1444,7 @@ a { color: inherit; }
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 22%;
+  border-radius: 23%;
   box-shadow: 0 0 0 0 rgba(129, 140, 248, 0.6);
   animation: radar-pulse 3s ease-out infinite;
 }

@@ -18,6 +18,7 @@ export default function AdminPortal({ toast }) {
   const [overview, setOverview] = useState(null)
   const [users, setUsers] = useState([])
   const [events, setEvents] = useState([])
+  const [otpRows, setOtpRows] = useState([])
   const [tab, setTab] = useState('users')
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -38,6 +39,7 @@ export default function AdminPortal({ toast }) {
       .adminLoginEvents({ limit: 100, only_failed: onlyFailed })
       .then(setEvents)
       .catch((err) => setError(err.message))
+    api.adminOtpLog({ limit: 50 }).then(setOtpRows).catch(() => {})
   }, [query, statusFilter, onlyFailed])
 
   useEffect(() => {
@@ -105,12 +107,21 @@ export default function AdminPortal({ toast }) {
         </>
       )}
 
-      <div className="auth-tabs" style={{ maxWidth: 340, marginBottom: 16 }}>
+      {overview?.sms && (
+        <div className={`sms-banner ${overview.sms.is_live ? 'live' : ''}`}>
+          <strong>SMS: {overview.sms.provider}</strong> — {overview.sms.note}
+        </div>
+      )}
+
+      <div className="auth-tabs" style={{ maxWidth: 460, marginBottom: 16 }}>
         <button className={tab === 'users' ? 'on' : ''} onClick={() => setTab('users')}>
           Users
         </button>
         <button className={tab === 'activity' ? 'on' : ''} onClick={() => setTab('activity')}>
           Login activity
+        </button>
+        <button className={tab === 'sms' ? 'on' : ''} onClick={() => setTab('sms')}>
+          SMS delivery
         </button>
       </div>
 
@@ -269,6 +280,44 @@ export default function AdminPortal({ toast }) {
             )
           }
         />
+      )}
+
+      {tab === 'sms' && (
+        <div className="table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>When</th><th>Sent to</th><th>Name</th><th>Purpose</th>
+                <th>Delivery</th><th>State</th><th>Provider note</th>
+              </tr>
+            </thead>
+            <tbody>
+              {otpRows.map((row) => (
+                <tr key={row.id}>
+                  <td className="dim">{when(row.created_at)}</td>
+                  <td className="mono">{row.phone}</td>
+                  <td>{row.name || <span className="dim">—</span>}</td>
+                  <td className="mono">{row.purpose}</td>
+                  <td>
+                    <span className={`status-tag ${row.delivered ? 'active' : 'blocked'}`}>
+                      {row.delivered ? 'sent' : 'failed'}
+                    </span>
+                  </td>
+                  <td className="dim">
+                    {row.consumed ? 'used' : row.expired ? 'expired' : 'pending'}
+                    {row.attempts > 0 && ` · ${row.attempts} try`}
+                  </td>
+                  <td className="dim">{row.delivery_note || '—'}</td>
+                </tr>
+              ))}
+              {otpRows.length === 0 && (
+                <tr><td colSpan={7} className="dim" style={{ textAlign: 'center', padding: 30 }}>
+                  No codes sent yet.
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {tab === 'activity' && (

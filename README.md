@@ -109,10 +109,15 @@ re-ingests automatically every 6 hours while it runs.
 | **Register** | Name, unique username, phone, password — the account is active immediately and you're signed straight in |
 | **Sign in** | Username + password |
 | **Wrong password** | Generic error (no user enumeration); 5 failures locks the account for 15 minutes |
-| **Forgot password** | The user is shown the admin's email address. The admin sets a new password from the portal |
+| **Forgot password** | A reset code is texted to the registered phone; entering it with a new password signs you back in and revokes old sessions |
 
-Usernames and phone numbers are both unique. There is no phone verification
-step, so the number is recorded but not proven.
+Usernames and phone numbers are both unique. An unverified registration holds
+its username and phone for 24 hours, then they are released.
+
+Codes are stored hashed, expire in 5 minutes, allow 5 attempts, and are capped
+at one per minute and five per hour per account — SMS costs real money and OTP
+endpoints attract abuse. The admin portal has an **SMS delivery** tab showing
+every send and the provider response.
 
 ### Passwords are never readable
 

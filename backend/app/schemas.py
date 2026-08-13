@@ -121,8 +121,34 @@ class RegisterIn(BaseModel):
     password: str = Field(min_length=6, max_length=200)
 
 
+class OtpSentOut(BaseModel):
+    """A code has been sent. Never carries the code itself in production."""
+
+    sent: bool
+    phone_masked: str
+    expires_in: int
+    resend_in: int
+    note: str = ""
+    #: Populated only by the console SMS provider, so the flow is testable
+    #: locally without a gateway. Always null once a real provider is set.
+    dev_code: str | None = None
+    #: Shown as a fallback route when SMS cannot be delivered.
+    support_email: str = ""
+
+
+class VerifyOtpIn(BaseModel):
+    username: str
+    code: str = Field(min_length=4, max_length=10)
+
+
+class ResetPasswordIn(BaseModel):
+    username: str
+    code: str = Field(min_length=4, max_length=10)
+    new_password: str = Field(min_length=6, max_length=200)
+
+
 class SupportInfoOut(BaseModel):
-    """Returned by forgot-password: who to contact, and what to say."""
+    """Fallback for forgot-password when no SMS channel can be reached."""
 
     support_email: str
     message: str

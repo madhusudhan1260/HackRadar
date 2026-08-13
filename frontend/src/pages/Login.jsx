@@ -35,14 +35,34 @@ export default function Login() {
   const [support, setSupport] = useState(null)
 
   const [form, setForm] = useState({
-    name: '', username: '', phone: '', password: '',
+    name: '', username: '', phone: '', password: '', code: '', newPassword: '',
   })
+
+  // Details of the code we just sent: masked phone, resend timer, and the
+  // dev code when no real SMS provider is configured.
+  const [otp, setOtp] = useState(null)
+  const [otpPurpose, setOtpPurpose] = useState('register')
+  const [resendIn, setResendIn] = useState(0)
 
   const [usernameHint, setUsernameHint] = useState(null)
   const usernameTimer = useRef(null)
   const cardRef = useRef(null)
 
   const set = (patch) => setForm((current) => ({ ...current, ...patch }))
+
+  useEffect(() => {
+    if (resendIn <= 0) return undefined
+    const timer = setTimeout(() => setResendIn((value) => value - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [resendIn])
+
+  const startOtp = (result, purpose) => {
+    setOtp(result)
+    setOtpPurpose(purpose)
+    setResendIn(result.resend_in || 60)
+    setMode('otp')
+    setSupport(null)
+  }
 
   // Subtle parallax: the card leans towards the pointer.
   useEffect(() => {
@@ -75,6 +95,7 @@ export default function Login() {
     setMode(nextMode)
     setError('')
     setSupport(null)
+    setOtp(null)
   }
 
   const switchPortal = (next) => {
@@ -115,21 +136,42 @@ export default function Login() {
       signIn(result.token, result.user)
     })
 
-  // Registration signs you straight in — no verification step.
+  // Registration sends a one-time code; the account activates on verify.
   const doSignUp = () =>
     run(async () => {
-      const result = await api.register({
-        name: form.name,
-        username: form.username,
-        phone: form.phone,
-        password: form.password,
-      })
+      startOtp(
+        await api.register({
+          name: form.name,
+          username: form.username,
+          phone: form.phone,
+          password: form.password,
+        }),
+        'register',
+      )
+    })
+
+  const doVerify = () =>
+    run(async () => {
+      const result =
+        otpPurpose === 'register'
+          ? await api.verifyOtp(form.username, form.code)
+          : await api.resetPassword(form.username, form.code, form.newPassword)
       signIn(result.token, result.user)
+    })
+
+  const doResend = () =>
+    run(async () => {
+      startOtp(
+        otpPurpose === 'register'
+          ? await api.resendOtp(form.username)
+          : await api.forgotPassword(form.username),
+        otpPurpose,
+      )
     })
 
   const doForgot = () =>
     run(async () => {
-      setSupport(await api.forgotPassword(form.username))
+      startOtp(await api.forgotPassword(form.username), 'reset')
     })
 
   const submit = (event) => {
@@ -137,6 +179,7 @@ export default function Login() {
     if (busy) return
     if (mode === 'signin') doSignIn()
     else if (mode === 'signup') doSignUp()
+    else if (mode === 'otp') doVerify()
     else if (mode === 'forgot') doForgot()
   }
 
@@ -147,8 +190,10 @@ export default function Login() {
     : mode === 'signin'
       ? isAdmin ? 'Enter admin portal' : 'Sign in'
       : mode === 'signup'
-        ? 'Create account'
-        : 'Show recovery details'
+        ? 'Send verification code'
+        : mode === 'otp'
+          ? otpPurpose === 'reset' ? 'Reset password' : 'Verify and continue'
+          : 'Send reset code'
 
   return (
     <div className={`auth-shell ${isAdmin ? 'admin-mode' : ''}`}>
@@ -239,22 +284,26 @@ export default function Login() {
                 ? 'Admin portal'
                 : mode === 'signup'
                   ? 'Create your account'
-                  : mode === 'forgot'
-                    ? 'Forgot your password?'
-                    : 'Welcome back'}
+                  : mode === 'otp'
+                    ? otpPurpose === 'reset' ? 'Reset your password' : 'Verify your phone'
+                    : mode === 'forgot'
+                      ? 'Forgot your password?'
+                      : 'Welcome back'}
             </h3>
             <p>
               {isAdmin
                 ? 'Restricted access. Admin credentials only.'
                 : mode === 'signup'
-                  ? 'Takes a few seconds — you go straight in.'
-                  : mode === 'forgot'
-                    ? 'The administrator resets passwords by hand.'
-                    : 'Sign in to your hackathon dashboard.'}
+                  ? 'We text a one-time code to confirm your number.'
+                  : mode === 'otp'
+                    ? `Enter the code we sent to ${otp?.phone_masked || 'your phone'}.`
+                    : mode === 'forgot'
+                      ? "We'll text a code to your registered number."
+                      : 'Sign in to your hackathon dashboard.'}
             </p>
           </div>
 
-          {!isAdmin && mode !== 'forgot' && (
+          {!isAdmin && mode !== 'forgot' && mode !== 'otp' && (
             <div className="auth-tabs">
               <button
                 type="button"
@@ -274,6 +323,17 @@ export default function Login() {
           )}
 
           {error && <div className="error-banner">⚠ {error}</div>}
+
+          {otp?.dev_code && mode === 'otp' && (
+            <div className="dev-banner">
+              <strong>Development mode — no SMS was sent.</strong>
+              <div className="dev-code">{otp.dev_code}</div>
+              <span>
+                Also printed in the backend log. Add an SMS provider in{' '}
+                <code>.env</code> to deliver real messages.
+              </span>
+            </div>
+          )}
 
           {support && (
             <div className="support-card">
@@ -307,6 +367,7 @@ export default function Login() {
                 value={form.username}
                 autoComplete="username"
                 placeholder={isAdmin ? 'admin username' : 'madhu'}
+                disabled={mode === 'otp'}
                 onChange={(event) => onUsernameChange(event.target.value)}
                 required
               />
@@ -331,12 +392,13 @@ export default function Login() {
                   required
                 />
                 <p className="field-hint">
-                  So the organiser can reach you about your account.
+                  We text a one-time code here. You will not need a code again
+                  after this.
                 </p>
               </div>
             )}
 
-            {mode !== 'forgot' && (
+            {(mode === 'signin' || mode === 'signup') && (
               <div className="field">
                 <label>Password</label>
                 <input
@@ -348,6 +410,52 @@ export default function Login() {
                   required
                 />
               </div>
+            )}
+
+            {mode === 'otp' && (
+              <>
+                <div className="field">
+                  <label>Verification code</label>
+                  <input
+                    className="otp-input"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={form.code}
+                    placeholder="······"
+                    onChange={(event) => set({ code: event.target.value.replace(/\D/g, '') })}
+                    required
+                  />
+                </div>
+
+                {otpPurpose === 'reset' && (
+                  <div className="field">
+                    <label>New password</label>
+                    <input
+                      type="password"
+                      value={form.newPassword}
+                      autoComplete="new-password"
+                      placeholder="At least 8 characters"
+                      onChange={(event) => set({ newPassword: event.target.value })}
+                      required
+                    />
+                  </div>
+                )}
+
+                <div className="auth-row">
+                  <button
+                    type="button"
+                    className="link-btn"
+                    disabled={resendIn > 0 || busy}
+                    onClick={doResend}
+                  >
+                    {resendIn > 0 ? `Resend code in ${resendIn}s` : 'Resend code'}
+                  </button>
+                  <button type="button" className="link-btn" onClick={() => goTo('signin')}>
+                    Back to sign in
+                  </button>
+                </div>
+              </>
             )}
 
             <button

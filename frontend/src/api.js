@@ -26,9 +26,42 @@ export function setUnauthorizedHandler(handler) {
   onUnauthorized = handler
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/**
+ * Free-tier hosts park idle instances and answer with a platform-level 404
+ * or 502 while one wakes up. Retry read-only calls so a cold start looks
+ * like a slow load instead of a broken page.
+ *
+ * Only GETs are retried — replaying a POST could double-create.
+ */
+async function fetchWithWakeRetry(url, init, attempts = 3) {
+  const isRead = !init.method || init.method.toUpperCase() === 'GET'
+  let lastError
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await fetch(url, init)
+      const wakingUp =
+        response.status === 502 ||
+        response.status === 503 ||
+        // Render marks "no instance running" with this header.
+        (response.status === 404 && response.headers.get('x-render-routing') === 'no-server')
+
+      if (!wakingUp || !isRead || attempt === attempts - 1) return response
+    } catch (error) {
+      lastError = error
+      if (!isRead || attempt === attempts - 1) throw error
+    }
+    await sleep(900 * (attempt + 1))
+  }
+
+  throw lastError || new Error('Server unavailable')
+}
+
 async function request(path, options = {}) {
   const token = getToken()
-  const response = await fetch(`${BASE}${path}`, {
+  const response = await fetchWithWakeRetry(`${BASE}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',

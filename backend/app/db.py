@@ -64,6 +64,36 @@ _ADDED_COLUMNS: list[tuple[str, str, str, str | None]] = [
 #: How each backend spells a false literal.
 _FALSE_LITERAL = {"sqlite": "0", "postgresql": "FALSE"}
 
+# Schema changes beyond adding a column. SQLite ignores VARCHAR lengths and
+# cannot drop an index created by a UNIQUE constraint the same way, so each
+# entry names the dialects it applies to.
+_SCHEMA_FIXES: list[tuple[str, str]] = [
+    # sent_to held a phone number (24 chars) before codes moved to email.
+    ("postgresql", "ALTER TABLE otp_codes ALTER COLUMN sent_to TYPE VARCHAR(240)"),
+    # One inbox may now hold several accounts, so email must not be unique.
+    ("postgresql", "DROP INDEX IF EXISTS ix_users_email"),
+    ("postgresql", "CREATE INDEX IF NOT EXISTS ix_users_email ON users (email)"),
+    ("sqlite", "DROP INDEX IF EXISTS ix_users_email"),
+    ("sqlite", "CREATE INDEX IF NOT EXISTS ix_users_email ON users (email)"),
+]
+
+
+def _apply_schema_fixes() -> None:
+    """Run the non-additive migrations, ignoring ones already applied."""
+    from sqlalchemy import text
+
+    dialect = engine.dialect.name
+    for target, statement in _SCHEMA_FIXES:
+        if target != dialect:
+            continue
+        try:
+            with engine.begin() as connection:
+                connection.execute(text(statement))
+        except Exception as exc:  # noqa: BLE001 - best effort, already-applied is fine
+            import logging
+
+            logging.getLogger(__name__).debug("schema fix skipped (%s): %s", statement, exc)
+
 
 def _apply_pending_columns() -> None:
     from sqlalchemy import inspect, text
@@ -94,3 +124,4 @@ def init_db() -> None:
 
     Base.metadata.create_all(bind=engine)
     _apply_pending_columns()
+    _apply_schema_fixes()

@@ -97,11 +97,10 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(60), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(120))
     phone: Mapped[str] = mapped_column(String(24), unique=True, index=True)
-    # Verification codes go here. Nullable so accounts created before email
-    # was introduced still load; new registrations always set it.
-    email: Mapped[str | None] = mapped_column(
-        String(240), unique=True, index=True, nullable=True
-    )
+    # Verification codes go here. Deliberately NOT unique: one inbox may
+    # hold several accounts. Nullable so accounts created before email was
+    # introduced still load; new registrations always set it.
+    email: Mapped[str | None] = mapped_column(String(240), index=True, nullable=True)
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     password_hash: Mapped[str] = mapped_column(String(200))
 
@@ -122,7 +121,7 @@ class User(Base):
 
 
 class OtpCode(Base):
-    """A one-time code sent to a phone. Stored hashed, never in clear text."""
+    """A one-time code. Stored hashed, never in clear text."""
 
     __tablename__ = "otp_codes"
 
@@ -130,7 +129,10 @@ class OtpCode(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     purpose: Mapped[str] = mapped_column(String(20), index=True)  # register|reset
     code_hash: Mapped[str] = mapped_column(String(120))
-    sent_to: Mapped[str] = mapped_column(String(24))
+    # Sized for an email address. This was String(24) when codes went to
+    # phones — long enough for +919876543210, far too short for an inbox,
+    # and Postgres rejects an over-length value outright.
+    sent_to: Mapped[str] = mapped_column(String(240))
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime)

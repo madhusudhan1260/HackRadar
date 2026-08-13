@@ -7,6 +7,10 @@ Flow:
   Login     -> username + password. No code.
   Forgot    -> code emailed to the registered address -> new password.
 
+One email address may hold several accounts — usernames are what identify
+people here. Recovery is therefore keyed on username: the code proves you
+hold the inbox, the username says which account to act on.
+
 Passwords are stored as bcrypt hashes and are never recoverable. "Recovery"
 always means setting a new one.
 
@@ -133,12 +137,6 @@ def register(payload: RegisterIn, request: Request, db: Session = Depends(get_db
 
     if db.scalar(select(User).where(User.username == username)) is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "That username is already taken.")
-
-    if db.scalar(select(User).where(User.email == email)) is not None:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            "That email address is already registered. Try signing in instead.",
-        )
 
     existing_phone = db.scalar(select(User).where(User.phone == phone))
     if existing_phone is not None:

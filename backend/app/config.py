@@ -105,9 +105,12 @@ class Settings:
     OTP_TTL_MINUTES: int = int(os.getenv("OTP_TTL_MINUTES", "5"))
     OTP_MAX_ATTEMPTS: int = int(os.getenv("OTP_MAX_ATTEMPTS", "5"))
     OTP_RESEND_COOLDOWN_SECONDS: int = int(os.getenv("OTP_RESEND_COOLDOWN_SECONDS", "60"))
-    # Max OTPs per phone number per hour — SMS costs money and OTP
-    # endpoints are a favourite target for abuse.
+    # Max codes per account per hour.
     OTP_HOURLY_LIMIT: int = int(os.getenv("OTP_HOURLY_LIMIT", "5"))
+    # Max codes to one inbox per hour, across all accounts. Because one
+    # email may hold several accounts, a per-account cap alone would let
+    # someone register repeatedly to flood a stranger's inbox.
+    OTP_INBOX_HOURLY_LIMIT: int = int(os.getenv("OTP_INBOX_HOURLY_LIMIT", "12"))
 
     # --- SMS delivery ----------------------------------------------------
     # console = print the OTP to the server log (development only).

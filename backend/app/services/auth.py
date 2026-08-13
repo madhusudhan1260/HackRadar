@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Request
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -59,6 +59,24 @@ def issue_otp(db: Session, user: User, purpose: str) -> dict:
     hour_ago = now - timedelta(hours=1)
     if sum(1 for o in recent if _naive(o.created_at) > hour_ago) >= settings.OTP_HOURLY_LIMIT:
         raise OtpError("Too many codes requested. Try again in an hour.", 3600)
+
+    # One inbox may hold several accounts, so a per-account cap alone would
+    # let someone register repeatedly and bomb a stranger's inbox. Cap the
+    # destination as well.
+    destination_probe = (user.email or "").strip().lower()
+    if destination_probe:
+        to_inbox = db.scalar(
+            select(func.count(OtpCode.id)).where(
+                func.lower(OtpCode.sent_to) == destination_probe,
+                OtpCode.created_at > hour_ago,
+            )
+        ) or 0
+        if to_inbox >= settings.OTP_INBOX_HOURLY_LIMIT:
+            raise OtpError(
+                "Too many codes have been sent to that email address recently. "
+                "Try again in an hour.",
+                3600,
+            )
 
     # Any earlier unused code for this purpose is now void.
     for old in recent:

@@ -112,15 +112,24 @@ It was registered in **January 2011**, is held through the registrar Ascio
 is already owned can only be bought from its owner, usually for far more than a
 new registration — it is not something a registrar can sell you.
 
-Checked at the same time, these were unregistered:
+### Use hackradar.io instead
 
-| Domain | Why it works | Rough cost |
+`hackradar.io` came back **"Domain not found"** from the `.io` registry — the
+one alternative confirmed unregistered. It is also the conventional TLD for
+developer tools, so it reads as a product rather than a student project.
+
+| Domain | Status | Rough cost |
 |---|---|---|
-| `hackradar.in` | India-focused product, cheapest option | ~₹800/year |
-| `hackradar.app` | `.app` is HTTPS-only by design, reads as a product | ~₹1,500/year |
-| `hackradar.dev` | Developer-facing, fits the audience | ~₹1,500/year |
+| **`hackradar.io`** | **confirmed available** | ~₹3,000–5,000/year |
+| `hackradar.in` | unconfirmed — India's registry did not answer the lookup | ~₹800/year |
+| `hackradar.app` · `hackradar.dev` | unconfirmed — Google's registry does not answer public WHOIS | ~₹1,500/year |
+| `gethackradar.com` · `tryhackradar.com` | unconfirmed | ~₹1,000/year |
 
-Availability changes daily — confirm at your registrar before planning on one.
+`.in` is by far the cheapest and fits an India-focused product, so check it at
+the registrar first — a command-line lookup could not confirm it either way.
+
+**A registrar's checkout is the only authoritative check.** Availability shifts
+daily and WHOIS lookups are frequently rate-limited or incomplete.
 [Cloudflare Registrar](https://domains.cloudflare.com) sells at cost;
 [Namecheap](https://namecheap.com) and [GoDaddy](https://godaddy.com) are the
 common alternatives. You buy it yourself: it needs your payment details and
@@ -132,8 +141,8 @@ without changing any code.
 
 ### Connecting one once you own it
 
-1. Vercel → Project → **Settings → Domains** → add `hackradar.in` and
-   `www.hackradar.in`.
+1. Vercel → Project → **Settings → Domains** → add `hackradar.io` and
+   `www.hackradar.io`.
 2. Vercel shows the DNS records to create. At your registrar add either:
    - an `A` record for the apex pointing at Vercel's IP, and
    - a `CNAME` for `www` pointing at `cname.vercel-dns.com`
@@ -144,7 +153,7 @@ without changing any code.
    Variables set:
 
    ```
-   VITE_SITE_URL = https://www.hackradar.in
+   VITE_SITE_URL = https://hackradar.io
    ```
 
    then redeploy. This is baked into the `og:url` and `og:image` tags at build

@@ -11,13 +11,27 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 
+def _normalize_db_url(url: str) -> str:
+    """Make hosted Postgres URLs work with SQLAlchemy 2.
+
+    Render, Heroku and Railway all hand out `postgres://…`, a scheme
+    SQLAlchemy 2 dropped. Rewrite it to the psycopg 3 driver, which is what
+    requirements.txt installs.
+    """
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url[len("postgres://") :]
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url[len("postgresql://") :]
+    return url
+
+
 class Settings:
     # --- Database -------------------------------------------------------
     # SQLite by default so the project runs with zero setup.
     # Point DATABASE_URL at Postgres for production, e.g.
     #   postgresql+psycopg://user:pass@localhost:5432/hackradar
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL", f"sqlite:///{BASE_DIR / 'hackradar.db'}"
+    DATABASE_URL: str = _normalize_db_url(
+        os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'hackradar.db'}")
     )
 
     # --- Collectors -----------------------------------------------------

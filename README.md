@@ -26,6 +26,14 @@ skills, and warns you before deadlines pass.
 
 ---
 
+## Deploying
+
+Backend + Postgres on Render, frontend on Vercel — both free, both configured
+in this repo (`render.yaml`, `frontend/vercel.json`). Step-by-step guide with
+the custom-domain setup: **[DEPLOY.md](DEPLOY.md)**.
+
+---
+
 ## Quick start
 
 Two terminals. Backend first.

@@ -8,8 +8,9 @@ beautifulsoup4>=4.12
 apscheduler>=3.10
 bcrypt>=4.2
 
-# Postgres driver — only needed when DATABASE_URL points at Postgres.
-# psycopg[binary]>=3.2
+# Postgres driver. Unused with the default SQLite URL, but required in
+# production — hosts hand out a postgres:// DATABASE_URL.
+psycopg[binary]>=3.2
 
 # Optional: LLM classification of vague listings (set ANTHROPIC_API_KEY).
 # anthropic>=0.40

@@ -1,0 +1,54 @@
+# Render Blueprint — creates the API and its Postgres database in one go.
+#
+#   Render dashboard -> New -> Blueprint -> pick this repo
+#
+# Everything below is provisioned automatically except SUPPORT_EMAIL and
+# CORS_ORIGINS, which you set once the frontend has a URL.
+
+databases:
+  - name: hackradar-db
+    databaseName: hackradar
+    user: hackradar
+    plan: free
+
+services:
+  - type: web
+    name: hackradar-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    # $PORT is supplied by Render; binding anywhere else fails the health check.
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hackradar-db
+          property: connectionString
+
+      # Generated once by Render and then held constant. Rotating it
+      # invalidates every session.
+      - key: SECRET_KEY
+        generateValue: true
+
+      - key: PYTHON_VERSION
+        value: "3.12"
+
+      - key: ENABLED_COLLECTORS
+        value: devpost,mlh
+
+      - key: INGEST_INTERVAL_MINUTES
+        value: "360"
+
+      - key: RUN_SCHEDULER
+        value: "true"
+
+      - key: SUPPORT_EMAIL
+        value: madhuusudhann01@gmail.com
+
+      # Set this to your Vercel URL after the frontend is deployed.
+      # Only needed if the frontend calls the API cross-origin; with the
+      # vercel.json rewrite it is same-origin and this can stay empty.
+      - key: CORS_ORIGINS
+        sync: false

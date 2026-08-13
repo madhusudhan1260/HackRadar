@@ -49,11 +49,20 @@ def get_db() -> Iterator[Session]:
 # Columns added to tables that already shipped. `create_all` creates missing
 # tables but never alters existing ones, so these are applied by hand.
 # This is a stopgap for local development — move to Alembic before deploying.
-_ADDED_COLUMNS: list[tuple[str, str, str]] = [
-    ("profiles", "user_id", "INTEGER"),
-    ("users", "email", "VARCHAR(240)"),
-    ("users", "email_verified", "BOOLEAN DEFAULT 0"),
+# (table, column, type, backfill value or None)
+#
+# Types must be spelled so both backends accept them. Notably a boolean
+# default cannot be written as 0: SQLite allows it, Postgres raises
+# DatatypeMismatch. Backfills are applied as a separate UPDATE with a
+# dialect-appropriate literal instead of a DEFAULT clause.
+_ADDED_COLUMNS: list[tuple[str, str, str, str | None]] = [
+    ("profiles", "user_id", "INTEGER", None),
+    ("users", "email", "VARCHAR(240)", None),
+    ("users", "email_verified", "BOOLEAN", "false"),
 ]
+
+#: How each backend spells a false literal.
+_FALSE_LITERAL = {"sqlite": "0", "postgresql": "FALSE"}
 
 
 def _apply_pending_columns() -> None:
@@ -61,15 +70,23 @@ def _apply_pending_columns() -> None:
 
     inspector = inspect(engine)
     existing_tables = set(inspector.get_table_names())
+    dialect = engine.dialect.name
 
     with engine.begin() as connection:
-        for table, column, ddl_type in _ADDED_COLUMNS:
+        for table, column, ddl_type, backfill in _ADDED_COLUMNS:
             if table not in existing_tables:
                 continue
             columns = {c["name"] for c in inspector.get_columns(table)}
             if column in columns:
                 continue
+
             connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"))
+
+            if backfill == "false":
+                literal = _FALSE_LITERAL.get(dialect, "FALSE")
+                connection.execute(
+                    text(f"UPDATE {table} SET {column} = {literal} WHERE {column} IS NULL")
+                )
 
 
 def init_db() -> None:

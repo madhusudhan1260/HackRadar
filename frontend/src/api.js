@@ -153,6 +153,11 @@ export const api = {
   ingest: (sources) => post('/ingest', { sources: sources ?? null, limit: 200 }),
   notificationPreview: () => request('/notifications/preview'),
 
+  // --- form filler ----------------------------------------------------
+  formReadiness: () => request('/form/readiness'),
+  analyseForm: (payload) => post('/form/analyse', payload),
+  generateAnswer: (payload) => post('/form/generate', payload),
+
   // --- admin portal ---------------------------------------------------
   adminOverview: () => request('/admin/overview'),
   adminUsers: (params = {}) => request(`/admin/users${qs(params)}`),
@@ -163,4 +168,5 @@ export const api = {
   adminSetStatus: (userId, newStatus) =>
     request(`/admin/users/${userId}/status${qs({ new_status: newStatus })}`, { method: 'POST' }),
   adminForceSignout: (userId) => request(`/admin/users/${userId}/sessions`, { method: 'DELETE' }),
+  adminDeleteUser: (userId) => request(`/admin/users/${userId}`, { method: 'DELETE' }),
 }

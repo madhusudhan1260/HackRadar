@@ -19,6 +19,7 @@ import HackathonDetail from './components/HackathonDetail'
 import DeadlineBoard from './components/DeadlineBoard'
 import ProfilePanel from './components/ProfilePanel'
 import SourcesPanel from './components/SourcesPanel'
+import AssistantPanel from './components/AssistantPanel'
 import AdminPortal from './pages/AdminPortal'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
@@ -489,16 +490,24 @@ function ListView({ view, filters, setFilters, stats, refreshKey, bumpRefresh, o
 
       {!loading && data && data.items.length > 0 && (
         <>
-          <div className="grid">
-            {data.items.map((item, index) => (
-              <HackathonCard
-                key={item.id}
-                index={index}
-                item={item}
-                onOpen={openDetail}
-                onToggleBookmark={toggleBookmark}
-              />
-            ))}
+          {/* Discover splits into the list and the AI column; every other
+              view keeps the full width. */}
+          <div className={view === 'discover' ? 'discover-split' : ''}>
+            <div className="grid">
+              {data.items.map((item, index) => (
+                <HackathonCard
+                  key={item.id}
+                  index={index}
+                  item={item}
+                  onOpen={openDetail}
+                  onToggleBookmark={toggleBookmark}
+                />
+              ))}
+            </div>
+
+            {view === 'discover' && (
+              <AssistantPanel hackathons={data.items} toast={toast} />
+            )}
           </div>
 
           {view === 'discover' && totalPages > 1 && (

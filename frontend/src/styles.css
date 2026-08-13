@@ -2085,3 +2085,159 @@ a { color: inherit; }
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
 }
+
+/* ================================================================
+   Discover: hackathon list + AI column
+   ================================================================ */
+
+.discover-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--sp-4);
+  align-items: start;
+}
+
+/* The list column has its own grid; keep cards comfortable now that it
+   is narrower than the full page. */
+.discover-split > .grid {
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+}
+
+.assistant {
+  position: sticky;
+  top: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  max-height: calc(100vh - var(--sp-8));
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.assistant-head h2 {
+  margin: 0;
+  font-size: var(--fs-md);
+  letter-spacing: var(--tracking-tight);
+}
+
+.assistant-head p {
+  margin: 2px 0 var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  line-height: var(--lh-snug);
+}
+
+.assist-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-3);
+}
+
+.assist-card select {
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev-2);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-xs);
+}
+
+.assist-label {
+  display: block;
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--text-faint);
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.assist-note {
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+  line-height: var(--lh-snug);
+  margin: 7px 0 0;
+}
+
+.assist-q {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  margin-bottom: var(--sp-2);
+  line-height: var(--lh-snug);
+}
+
+.assist-card .btn { width: 100%; font-size: var(--fs-xs); }
+
+.assist-answer {
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev-2);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-body);
+  resize: vertical;
+}
+
+.assist-answer:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+
+.assist-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: 7px;
+}
+
+.assist-actions .src {
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+  margin-right: auto;
+}
+
+.assist-actions .src.claude { color: var(--good); }
+
+/* --- profile readiness meter --- */
+
+.ready-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: var(--fs-xs);
+}
+
+.ready-pct { font-weight: 700; font-variant-numeric: tabular-nums; }
+.ready-pct.good { color: var(--good); }
+.ready-pct.ok { color: var(--warn); }
+.ready-pct.low { color: var(--hot); }
+
+.ready-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--bg-elev-2);
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.ready-bar > div {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), #a855f7);
+  transition: width 0.5s;
+}
+
+.extension-cta strong { font-size: var(--fs-xs); display: block; margin-bottom: 4px; }
+
+/* Below this width the two columns stop being readable side by side. */
+@media (max-width: 1180px) {
+  .discover-split { grid-template-columns: minmax(0, 1fr); }
+  .assistant { position: static; max-height: none; order: -1; }
+}

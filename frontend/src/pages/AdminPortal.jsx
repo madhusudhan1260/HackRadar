@@ -199,13 +199,22 @@ export default function AdminPortal({ toast }) {
                         </button>
                       )}
                       {user.role !== 'admin' && (
-                        <button
-                          className="link-btn danger"
-                          disabled={busyId === user.id}
-                          onClick={() => setDialog({ kind: 'block', user })}
-                        >
-                          {user.status === 'blocked' ? 'Unblock' : 'Block'}
-                        </button>
+                        <>
+                          <button
+                            className="link-btn danger"
+                            disabled={busyId === user.id}
+                            onClick={() => setDialog({ kind: 'block', user })}
+                          >
+                            {user.status === 'blocked' ? 'Unblock' : 'Block'}
+                          </button>
+                          <button
+                            className="link-btn danger"
+                            disabled={busyId === user.id}
+                            onClick={() => setDialog({ kind: 'delete', user })}
+                          >
+                            Delete
+                          </button>
+                        </>
                       )}
                     </td>
                   </tr>
@@ -266,6 +275,23 @@ export default function AdminPortal({ toast }) {
                   dialog.user.status === 'blocked' ? 'active' : 'blocked',
                 ),
             )
+          }
+        />
+      )}
+
+      {dialog?.kind === 'delete' && (
+        <ConfirmDialog
+          title={`Delete ${dialog.user.name}?`}
+          message={
+            `@${dialog.user.username} · ${dialog.user.phone}. This removes the ` +
+            'account, its profile, saved hackathons and sessions. It cannot be undone.'
+          }
+          confirmLabel="Delete permanently"
+          danger
+          busy={busyId === dialog.user.id}
+          onClose={() => setDialog(null)}
+          onConfirm={() =>
+            runAction('Account deleted', () => api.adminDeleteUser(dialog.user.id))
           }
         />
       )}

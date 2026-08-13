@@ -240,6 +240,53 @@ def reset_user_password(
     }
 
 
+@router.delete("/users/{user_id}")
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Remove an account and everything attached to it.
+
+    Rows go explicitly rather than by ON DELETE CASCADE: SQLite reuses
+    primary keys, so an orphaned code or session row would otherwise be
+    inherited by whoever gets that id next.
+    """
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such user.")
+    if user.role == "admin":
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Admin accounts cannot be deleted here.",
+        )
+
+    username = user.username
+    removed = {"codes": 0, "sessions": 0, "bookmarks": 0}
+
+    for model, key in ((OtpCode, "codes"), (AuthSession, "sessions")):
+        for row in db.scalars(select(model).where(model.user_id == user.id)).all():
+            db.delete(row)
+            removed[key] += 1
+
+    for profile in db.scalars(select(Profile).where(Profile.user_id == user.id)).all():
+        for mark in db.scalars(
+            select(Bookmark).where(Bookmark.profile_id == profile.id)
+        ).all():
+            db.delete(mark)
+            removed["bookmarks"] += 1
+        db.delete(profile)
+
+    db.delete(user)
+    db.commit()
+
+    auth_service.log_event(
+        db, "delete", True, username_tried=username,
+        reason=f"deleted by admin {admin.username}",
+    )
+    return {"deleted": username, "removed": removed, "message": f"Deleted {username}."}
+
+
 @router.post("/users/{user_id}/status")
 def set_user_status(
     user_id: int,

@@ -47,8 +47,35 @@ services:
       - key: SUPPORT_EMAIL
         value: madhuusudhann01@gmail.com
 
-      # Set this to your Vercel URL after the frontend is deployed.
-      # Only needed if the frontend calls the API cross-origin; with the
-      # vercel.json rewrite it is same-origin and this can stay empty.
+      # The static site below is served from a different origin, so the
+      # API has to allow it explicitly. Add any custom domain here too.
       - key: CORS_ORIGINS
-        sync: false
+        value: https://hackradar-web.onrender.com
+
+  # ------------------------------------------------------------------
+  # Frontend. A static site: Render runs the Vite build and serves dist/
+  # from its CDN, so it stays fast even while the API instance is asleep.
+  # ------------------------------------------------------------------
+  - type: web
+    name: hackradar-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      # Absolute API origin — the two services are on different hosts.
+      - key: VITE_API_BASE
+        value: https://hackradar-api.onrender.com
+      # Baked into the social preview tags at build time.
+      - key: VITE_SITE_URL
+        value: https://hackradar-web.onrender.com
+    routes:
+      # Single-page app: unknown paths are routes, not missing files, so
+      # hand them to index.html and let the router decide.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable

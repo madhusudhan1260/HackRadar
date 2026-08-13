@@ -1,6 +1,15 @@
 /** Thin wrapper around the HackRadar API. */
 
-const BASE = '/api'
+/**
+ * Where the API lives.
+ *
+ * Empty by default, so calls go to /api on the current origin — that is
+ * what the Vite dev proxy and a same-origin host both want. Set
+ * VITE_API_BASE to an absolute URL when the frontend is served from a
+ * different host than the API; the backend's CORS_ORIGINS must then list
+ * this site's origin.
+ */
+const BASE = `${(import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')}/api`
 const TOKEN_KEY = 'hackradar_token'
 
 export function getToken() {

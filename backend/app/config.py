@@ -63,6 +63,16 @@ class Settings:
         "GBP": 112.0,
     }
 
+    # --- Email (verification codes) --------------------------------------
+    # Leave EMAIL_PROVIDER blank to auto-select: brevo -> resend -> smtp ->
+    # console. Prefer an HTTP API in production: many hosts, including
+    # Render's free tier, block outbound SMTP ports.
+    EMAIL_PROVIDER: str = os.getenv("EMAIL_PROVIDER", "")
+    EMAIL_FROM: str = os.getenv("EMAIL_FROM", "")
+    EMAIL_FROM_NAME: str = os.getenv("EMAIL_FROM_NAME", "HackRadar")
+    BREVO_API_KEY: str = os.getenv("BREVO_API_KEY", "")
+    RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
+
     # --- Notifications --------------------------------------------------
     SMTP_HOST: str = os.getenv("SMTP_HOST", "")
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))

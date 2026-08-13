@@ -25,7 +25,7 @@ export default function DeadlineBoard({ onOpen, refreshKey }) {
   return (
     <>
       <div className="topbar">
-        <h2 style={{ margin: 0, fontSize: 18 }}>🔥 Deadlines</h2>
+        <h2 className="view-title">🔥 Deadlines</h2>
         <button
           className={`btn ${bookmarkedOnly ? 'primary' : ''}`}
           onClick={() => setBookmarkedOnly(!bookmarkedOnly)}
@@ -45,7 +45,7 @@ export default function DeadlineBoard({ onOpen, refreshKey }) {
         <section key={group.label} className="board-group">
           <div className="board-head">
             <h3>{group.label}</h3>
-            <span style={{ color: 'var(--text-faint)', fontSize: 12 }}>{group.items.length}</span>
+            <span className="board-count">{group.items.length}</span>
             <div className="rule" />
           </div>
 

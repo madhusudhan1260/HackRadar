@@ -443,7 +443,7 @@ function ListView({ view, filters, setFilters, stats, refreshKey, bumpRefresh, o
       )}
 
       {view === 'foryou' && (
-        <p style={{ color: 'var(--text-dim)', marginTop: 0 }}>
+        <p className="view-intro">
           Ranked by how well each event matches the skills and interests in your profile.
         </p>
       )}

@@ -115,7 +115,7 @@ export default function SourcesPanel({ onIngested, toast }) {
           scores above your threshold.
         </p>
 
-        {!alerts && <p style={{ color: 'var(--text-faint)' }}>Loading…</p>}
+        {!alerts && <p className="muted">Loading…</p>}
 
         {alerts && (
           <>
@@ -126,7 +126,7 @@ export default function SourcesPanel({ onIngested, toast }) {
             </div>
 
             {!alerts.email_configured && !alerts.telegram_configured && (
-              <p style={{ fontSize: 12.5, color: 'var(--warn)' }}>
+              <p className="warn-note">
                 No delivery channel configured. Set SMTP_* or TELEGRAM_* in{' '}
                 <code>backend/.env</code> to receive these by email or Telegram — they still
                 show up here in the meantime.
@@ -144,9 +144,7 @@ export default function SourcesPanel({ onIngested, toast }) {
             ))}
 
             {alerts.count === 0 && (
-              <p style={{ color: 'var(--text-faint)', fontSize: 13 }}>
-                Nothing queued right now.
-              </p>
+              <p className="muted">Nothing queued right now.</p>
             )}
           </>
         )}

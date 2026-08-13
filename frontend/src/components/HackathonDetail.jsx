@@ -75,9 +75,7 @@ export default function HackathonDetail({ item, onClose, onToggleBookmark }) {
         </p>
 
         {item.description && (
-          <p style={{ color: 'var(--text-dim)', fontSize: 13.5, margin: 0 }}>
-            {item.description}
-          </p>
+          <p className="modal-desc">{item.description}</p>
         )}
 
         <div className="detail-grid">
@@ -113,11 +111,9 @@ export default function HackathonDetail({ item, onClose, onToggleBookmark }) {
 
         {match && (
           <div className="match-panel">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong style={{ fontSize: 13 }}>Skill match</strong>
-              <strong style={{ color: matchColor(match.level), fontSize: 15 }}>
-                {match.score}%
-              </strong>
+            <div className="match-head">
+              <strong>Skill match</strong>
+              <strong style={{ color: matchColor(match.level) }}>{match.score}%</strong>
             </div>
             <div className="match-bar">
               <div style={{ width: `${match.score}%`, background: matchColor(match.level) }} />
@@ -137,9 +133,7 @@ export default function HackathonDetail({ item, onClose, onToggleBookmark }) {
 
         {item.tags.length > 0 && (
           <>
-            <div className="k" style={{ fontSize: 10.5, color: 'var(--text-faint)', letterSpacing: 0.7 }}>
-              TECHNOLOGIES
-            </div>
+            <div className="k section-label">Technologies</div>
             <div className="tag-row" style={{ marginTop: 6 }}>
               {item.tags.map((tag) => (
                 <span key={tag} className="tag">
@@ -161,7 +155,7 @@ export default function HackathonDetail({ item, onClose, onToggleBookmark }) {
         )}
 
         {item.also_on.length > 0 && (
-          <p style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 12 }}>
+          <p className="also-on">
             Also listed on{' '}
             {item.also_on.map((mirror, index) => (
               <span key={mirror.url}>

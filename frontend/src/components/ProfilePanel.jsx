@@ -170,7 +170,7 @@ export default function ProfilePanel({ onSaved, toast }) {
         Save profile
       </button>
       {status && (
-        <span style={{ marginLeft: 12, color: 'var(--text-dim)', fontSize: 13 }}>{status}</span>
+        <span className="save-status">{status}</span>
       )}
     </div>
   )

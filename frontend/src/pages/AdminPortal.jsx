@@ -66,7 +66,7 @@ export default function AdminPortal({ toast }) {
   return (
     <>
       <div className="topbar">
-        <h2 style={{ margin: 0, fontSize: 18 }}>🛡️ Admin portal</h2>
+        <h2 className="view-title">🛡️ Admin portal</h2>
         <span className="admin-pill">Restricted</span>
         <button className="btn" onClick={load}>
           ↻ Refresh

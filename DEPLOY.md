@@ -32,15 +32,34 @@ Total time: about 25 minutes.
 
 ### Create your admin account on the live database
 
-The local admin exists only in your local SQLite file. In the Render dashboard
-open your service → **Shell**, then:
+Your local admin lives in the local SQLite file; the live Postgres has no users
+yet. Render puts shell access behind a paid plan, so the first admin is created
+from environment variables instead — those are free to set.
+
+In the Render dashboard open **hackradar-api → Environment** and add:
+
+| Key | Value |
+|---|---|
+|  | your username |
+|  | a strong password — **not** your local one |
+|  | your full name |
+|  |  |
+
+Save. The service restarts and creates the account, logging
+.
+
+**Then delete .** It is not needed again and should not sit in
+your dashboard. The bootstrap only ever runs when no admin exists, so it cannot
+be used to change a password or add a second admin later — for those, use
+`create-admin --replace` against the database directly.
+
+If you prefer, you can skip the env vars and run the CLI locally against the
+live database instead. Copy the **External Database URL** from
+**hackradar-db → Connect**, then:
 
 ```bash
-python scripts/manage.py create-admin
+cd backend && DATABASE_URL='<paste external url>' ./venv/bin/python scripts/manage.py create-admin
 ```
-
-It prompts for username, name, phone and password. Use a **different, strong
-password** from your local one — this database is reachable from the internet.
 
 ---
 

@@ -39,6 +39,77 @@ def _scheduled_ingest() -> None:
         db.close()
 
 
+def _bootstrap_admin() -> None:
+    """Create the first admin from environment variables.
+
+    Exists because hosts commonly put shell access behind a paid plan,
+    leaving no way to run `manage.py create-admin` on the live database.
+
+    Only ever fires when there is no admin at all, so it cannot be used to
+    change an existing account's password or quietly add a second admin.
+    """
+    from .models import User
+    from .security import (
+        hash_password,
+        normalize_phone,
+        normalize_username,
+        password_problem,
+        phone_problem,
+        username_problem,
+    )
+    from .services.auth import ensure_profile
+
+    username = normalize_username(settings.ADMIN_USERNAME)
+    password = settings.ADMIN_PASSWORD
+    if not (username and password):
+        return
+
+    db = SessionLocal()
+    try:
+        if db.scalar(select(User).where(User.role == "admin")) is not None:
+            log.info(
+                "ADMIN_USERNAME is set but an admin already exists — ignoring. "
+                "Remove ADMIN_PASSWORD from the environment."
+            )
+            return
+
+        phone = normalize_phone(settings.ADMIN_PHONE)
+        for problem in (username_problem(username), phone_problem(phone), password_problem(password)):
+            if problem:
+                log.error("Cannot bootstrap admin: %s", problem)
+                return
+
+        if db.scalar(select(User).where(User.username == username)) is not None:
+            log.error("Cannot bootstrap admin: username %r is already taken.", username)
+            return
+        if db.scalar(select(User).where(User.phone == phone)) is not None:
+            log.error("Cannot bootstrap admin: phone %s is already registered.", phone)
+            return
+
+        admin = User(
+            username=username,
+            name=(settings.ADMIN_NAME or "Administrator").strip(),
+            phone=phone,
+            password_hash=hash_password(password),
+            role="admin",
+            status="active",
+            phone_verified=True,
+        )
+        db.add(admin)
+        db.commit()
+        db.refresh(admin)
+        ensure_profile(db, admin)
+
+        log.warning(
+            "Created admin %r from environment variables. "
+            "DELETE ADMIN_PASSWORD from the environment now — it is not needed "
+            "again and should not sit in your dashboard.",
+            username,
+        )
+    finally:
+        db.close()
+
+
 def _check_admin_integrity() -> None:
     """The app is single-admin by design. Shout if that ever stops being true.
 
@@ -92,6 +163,7 @@ async def lifespan(app: FastAPI):
     global scheduler
     init_db()
     _bootstrap_if_empty()
+    _bootstrap_admin()
     _check_admin_integrity()
 
     if settings.RUN_SCHEDULER:

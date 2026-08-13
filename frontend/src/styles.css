@@ -1355,13 +1355,11 @@ a { color: inherit; }
 
 .radar-mark {
   position: relative;
-  border-radius: 11px;
-  background: linear-gradient(135deg, #4f46e5, #a855f7);
+  border-radius: 22%;
   display: grid;
   place-items: center;
   flex-shrink: 0;
   box-shadow: 0 0 20px rgba(99, 102, 241, 0.45);
-  overflow: hidden;
 }
 
 /* Soft pulse so the mark feels "live" even at rest. */
@@ -1369,7 +1367,7 @@ a { color: inherit; }
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 11px;
+  border-radius: 22%;
   box-shadow: 0 0 0 0 rgba(129, 140, 248, 0.6);
   animation: radar-pulse 3s ease-out infinite;
 }
@@ -1400,15 +1398,14 @@ a { color: inherit; }
 }
 
 /* Each contact lights as the sweep crosses it. */
-.radar-blip.b1 { animation-delay: 0.35s; }
-.radar-blip.b2 { animation-delay: 1.5s; }
-.radar-blip.b3 { animation-delay: 1.05s; }
+.radar-blip.b1 { animation-delay: 0s; }
+.radar-blip.b2 { animation-delay: 1.3s; }
 
 @keyframes blip {
-  0%   { opacity: 0.95; r: 4; }
-  22%  { opacity: 0.35; }
-  55%  { opacity: 0; }
-  100% { opacity: 0; }
+  0%   { opacity: 1; }
+  30%  { opacity: 0.45; }
+  60%  { opacity: 0.15; }
+  100% { opacity: 0.15; }
 }
 
 /* --- constellation + scanline ------------------------------------ */

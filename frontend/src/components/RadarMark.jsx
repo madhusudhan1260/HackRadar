@@ -1,45 +1,57 @@
 /**
- * The brand mark: a radar dish sweeping for hackathons.
+ * The brand mark: a radar sweeping for hackathons.
  *
- * Pure SVG + CSS so it scales anywhere and costs nothing to animate.
- * The sweep, rings and blips all stop under prefers-reduced-motion.
+ * Matches favicon.svg — one bold ring plus a rotating arm, because
+ * anything busier stops reading at small sizes. Pure SVG + CSS so it
+ * scales anywhere and costs nothing to animate; the sweep and blips stop
+ * under prefers-reduced-motion.
  */
 export default function RadarMark({ size = 34, className = '' }) {
   return (
     <div className={`radar-mark ${className}`} style={{ width: size, height: size }}>
       <svg viewBox="0 0 100 100" width={size} height={size} aria-hidden="true">
         <defs>
-          <radialGradient id="radar-sweep-grad">
-            <stop offset="0%" stopColor="rgba(255,255,255,0.9)" />
-            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-          </radialGradient>
+          <linearGradient id="radar-bg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#4f46e5" />
+            <stop offset="1" stopColor="#a855f7" />
+          </linearGradient>
           <clipPath id="radar-clip">
-            <circle cx="50" cy="50" r="46" />
+            <circle cx="50" cy="50" r="34" />
           </clipPath>
         </defs>
 
-        {/* concentric range rings */}
-        <circle className="radar-ring" cx="50" cy="50" r="46" />
-        <circle className="radar-ring" cx="50" cy="50" r="31" />
-        <circle className="radar-ring" cx="50" cy="50" r="16" />
+        <rect width="100" height="100" rx="22" fill="url(#radar-bg)" />
 
-        {/* cross hairs */}
-        <line className="radar-ring" x1="50" y1="4" x2="50" y2="96" />
-        <line className="radar-ring" x1="4" y1="50" x2="96" y2="50" />
+        {/* range ring */}
+        <circle
+          className="radar-ring"
+          cx="50"
+          cy="50"
+          r="30"
+          fill="none"
+          stroke="#fff"
+          strokeWidth="7.4"
+        />
 
-        {/* rotating sweep wedge */}
-        <g clipPath="url(#radar-clip)">
-          <path
-            className="radar-sweep"
-            d="M50 50 L50 2 A48 48 0 0 1 92 32 Z"
-            fill="url(#radar-sweep-grad)"
+        {/* the arm and its trailing wedge rotate together */}
+        <g className="radar-sweep">
+          <g clipPath="url(#radar-clip)">
+            <path d="M50 50 L50 16 A34 34 0 0 1 79 33 Z" fill="rgba(255,255,255,0.28)" />
+          </g>
+          <line
+            x1="50"
+            y1="50"
+            x2="74"
+            y2="26"
+            stroke="#fff"
+            strokeWidth="7.4"
+            strokeLinecap="round"
           />
         </g>
 
-        {/* contacts that blink as the sweep passes */}
-        <circle className="radar-blip b1" cx="68" cy="34" r="3.4" />
-        <circle className="radar-blip b2" cx="33" cy="63" r="2.8" />
-        <circle className="radar-blip b3" cx="62" cy="70" r="2.4" />
+        {/* contacts, lighting up as the arm passes over them */}
+        <circle className="radar-blip b1" cx="74" cy="26" r="10" fill="#fff" />
+        <circle className="radar-blip b2" cx="30" cy="64" r="6" fill="#fff" />
       </svg>
     </div>
   )

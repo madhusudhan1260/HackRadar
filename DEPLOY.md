@@ -40,15 +40,15 @@ In the Render dashboard open **hackradar-api → Environment** and add:
 
 | Key | Value |
 |---|---|
-|  | your username |
-|  | a strong password — **not** your local one |
-|  | your full name |
-|  |  |
+| `ADMIN_USERNAME` | your username |
+| `ADMIN_PASSWORD` | a strong password — **not** your local one |
+| `ADMIN_NAME` | your full name |
+| `ADMIN_PHONE` | `+91XXXXXXXXXX` |
 
 Save. The service restarts and creates the account, logging
-.
+`Created admin ... from environment variables`.
 
-**Then delete .** It is not needed again and should not sit in
+**Then delete `ADMIN_PASSWORD`.** It is not needed again and should not sit in
 your dashboard. The bootstrap only ever runs when no admin exists, so it cannot
 be used to change a password or add a second admin later — for those, use
 `create-admin --replace` against the database directly.

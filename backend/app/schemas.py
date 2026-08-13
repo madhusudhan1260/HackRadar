@@ -239,7 +239,8 @@ class AdminOverviewOut(BaseModel):
     admins: int
     logins_today: int
     failed_logins_today: int
-    sms: dict
+    #: Status of the transport that delivers verification codes.
+    email: dict
 
 
 class BookmarkIn(BaseModel):

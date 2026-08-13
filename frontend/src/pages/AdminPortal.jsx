@@ -107,9 +107,10 @@ export default function AdminPortal({ toast }) {
         </>
       )}
 
-      {overview?.sms && (
-        <div className={`sms-banner ${overview.sms.is_live ? 'live' : ''}`}>
-          <strong>SMS: {overview.sms.provider}</strong> — {overview.sms.note}
+      {overview?.email && (
+        <div className={`sms-banner ${overview.email.is_live ? 'live' : ''}`}>
+          <strong>Verification codes: {overview.email.provider}</strong> —{' '}
+          {overview.email.note}
         </div>
       )}
 
@@ -121,7 +122,7 @@ export default function AdminPortal({ toast }) {
           Login activity
         </button>
         <button className={tab === 'sms' ? 'on' : ''} onClick={() => setTab('sms')}>
-          SMS delivery
+          Code delivery
         </button>
       </div>
 

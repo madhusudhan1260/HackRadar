@@ -52,6 +52,26 @@ services:
       - key: CORS_ORIGINS
         value: https://hackradar-web.onrender.com
 
+      # --- Verification-code email ------------------------------------
+      # Render blocks outbound SMTP ports, so a Gmail/SMTP setup cannot
+      # connect from here and every send fails. Forcing SMTP_HOST empty
+      # keeps a stray dashboard value from selecting that dead transport.
+      # Use the Brevo HTTP API instead — free, 300 emails/day, no domain.
+      - key: SMTP_HOST
+        value: ""
+
+      # Set these two in the dashboard (Environment tab):
+      #   BREVO_API_KEY  from app.brevo.com -> SMTP & API -> API keys
+      #   EMAIL_FROM     a sender address verified with Brevo
+      # Until both are present the app stays in console mode, where codes
+      # appear on screen and in the log rather than being emailed.
+      - key: BREVO_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_FROM_NAME
+        value: HackRadar
+
   # ------------------------------------------------------------------
   # Frontend. A static site: Render runs the Vite build and serves dist/
   # from its CDN, so it stays fast even while the API instance is asleep.

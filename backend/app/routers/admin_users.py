@@ -23,7 +23,7 @@ from ..schemas import (
 )
 from ..security import hash_password, mask_phone, password_problem
 from ..services import auth as auth_service
-from ..services.sms import provider_status
+from ..services.mailer import provider_status
 
 router = APIRouter(
     prefix="/api/admin", tags=["admin-portal"], dependencies=[Depends(require_admin)]
@@ -52,7 +52,7 @@ def overview(db: Session = Depends(get_db)):
         admins=sum(1 for u in users if u.role == "admin"),
         logins_today=sum(1 for e in events_today if e.success),
         failed_logins_today=sum(1 for e in events_today if not e.success),
-        sms=provider_status(),
+        email=provider_status(),
     )
 
 

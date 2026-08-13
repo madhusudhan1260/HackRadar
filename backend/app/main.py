@@ -39,6 +39,30 @@ def _scheduled_ingest() -> None:
         db.close()
 
 
+def _report_email_transport() -> None:
+    """Say plainly how verification codes will be delivered.
+
+    A misconfigured transport is otherwise invisible until a user tries to
+    register and the send fails.
+    """
+    from .services.mailer import provider_status
+
+    status = provider_status()
+    if status["is_live"]:
+        log.info("Verification codes: %s", status["note"])
+    elif status["provider"] == "console":
+        log.warning(
+            "Verification codes are NOT being emailed — running in console mode. "
+            "Set BREVO_API_KEY and EMAIL_FROM to send for real."
+        )
+    else:
+        log.error(
+            "Email transport %r is selected but incompletely configured. "
+            "Registration will fail until it is fixed.",
+            status["provider"],
+        )
+
+
 def _bootstrap_admin() -> None:
     """Create the first admin from environment variables.
 
@@ -165,6 +189,7 @@ async def lifespan(app: FastAPI):
     _bootstrap_if_empty()
     _bootstrap_admin()
     _check_admin_integrity()
+    _report_email_transport()
 
     if settings.RUN_SCHEDULER:
         scheduler = BackgroundScheduler(daemon=True)

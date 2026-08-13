@@ -2064,3 +2064,24 @@ a { color: inherit; }
 .data-table td, .data-table th { padding: var(--sp-3) var(--sp-4); }
 .data-table td { font-size: var(--fs-sm); }
 .data-table th { font-size: var(--fs-2xs); }
+
+/* Textareas share the input treatment. */
+.field textarea {
+  width: 100%;
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev-2);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+  resize: vertical;
+  transition: border-color 0.16s, box-shadow 0.22s;
+}
+
+.field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}

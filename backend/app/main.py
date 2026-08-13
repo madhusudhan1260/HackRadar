@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from .config import settings
 from .db import SessionLocal, init_db
 from .models import Hackathon
-from .routers import admin, admin_users, auth, hackathons, profile
+from .routers import admin, admin_users, auth, formfill, hackathons, profile
 from .services import pipeline
 
 logging.basicConfig(
@@ -222,6 +222,9 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    # The browser extension calls from chrome-extension://<id>, and the id
+    # is only known once it is packed — so match the scheme instead.
+    allow_origin_regex=r"chrome-extension://.*|moz-extension://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -232,6 +235,7 @@ app.include_router(hackathons.router)
 app.include_router(profile.router)
 app.include_router(admin.router)
 app.include_router(admin_users.router)
+app.include_router(formfill.router)
 
 
 @app.get("/api/health", tags=["meta"])

@@ -83,6 +83,7 @@ re-ingests automatically every 6 hours while it runs.
 
 | Feature | Where it lives |
 |---|---|
+| 🤖 AI form filler + browser extension | `services/field_matcher.py`, `extension/` |
 | ⚡ Priority ordering (default) | urgency + match + saved, in `routers/hackathons.py` |
 | 🔐 Accounts + admin portal | `routers/auth.py`, `routers/admin_users.py` |
 | 🔎 All hackathons, one dashboard | `GET /api/hackathons` |
@@ -187,6 +188,33 @@ ETHIndia from 9% to 66% — the score reacts to real changes.
 
 Optional: set `ANTHROPIC_API_KEY` in `backend/.env` to let Claude re-classify
 listings whose text is too vague for keyword rules. Everything works without it.
+
+---
+
+## AI form filler
+
+Enter your details once under **Profile → Application details**, then the
+browser extension completes hackathon applications from them.
+
+It maps a form's questions onto your profile semantically, so "What is your
+educational qualification?", "Current academic program" and "Degree" all
+resolve to the same field. Open questions such as "Why do you want to
+participate?" are drafted from your skills and the event's theme.
+
+Matching is rule-based and works with no API key. Set `ANTHROPIC_API_KEY` and
+Claude handles the labels the rules could not place, and writes better answers.
+
+**It never submits.** Credentials, identity documents, payment details, dates
+of birth, consent checkboxes and file uploads are refused outright — see
+`SENSITIVE_PATTERNS` in `backend/app/services/field_matcher.py`.
+
+Install instructions: [extension/README.md](extension/README.md).
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/form/readiness` | how complete the profile is |
+| `POST /api/form/analyse` | map detected fields onto values |
+| `POST /api/form/generate` | rewrite one open-ended answer |
 
 ---
 

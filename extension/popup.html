@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="title">HackRadar</span>
+      <button id="signout" class="link" hidden>Sign out</button>
+    </header>
+
+    <!-- Sign in -->
+    <section id="view-auth" hidden>
+      <p class="lede">Connect your HackRadar account to fill applications from your profile.</p>
+      <div id="auth-error" class="alert error" hidden></div>
+      <form id="auth-form">
+        <label for="username">Username</label>
+        <input id="username" type="text" autocomplete="username" required />
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" required />
+        <label for="api">Server</label>
+        <select id="api">
+          <option value="https://hackradar-api.onrender.com">hackradar-api.onrender.com</option>
+          <option value="http://localhost:8000">localhost:8000 (development)</option>
+        </select>
+        <button class="primary" type="submit">Connect</button>
+      </form>
+    </section>
+
+    <!-- Scanning / summary -->
+    <section id="view-scan" hidden>
+      <div class="who">
+        Signed in as <strong id="who-name"></strong>
+        <span id="who-complete" class="pill"></span>
+      </div>
+
+      <div id="scan-status" class="lede">Looking for a form on this page…</div>
+      <div id="scan-error" class="alert error" hidden></div>
+
+      <div id="summary" hidden>
+        <div class="page-title" id="page-title"></div>
+        <div class="counts">
+          <div><strong id="c-fill">0</strong><span>ready</span></div>
+          <div><strong id="c-review">0</strong><span>drafted</span></div>
+          <div><strong id="c-skip">0</strong><span>left to you</span></div>
+        </div>
+        <div id="fields" class="fields"></div>
+        <button id="fill" class="primary">Fill this form</button>
+        <p class="foot">
+          Nothing is submitted. Review every field, then press the site's own
+          submit button yourself.
+        </p>
+      </div>
+    </section>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

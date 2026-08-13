@@ -88,6 +88,22 @@ class ProfileIn(BaseModel):
     notify_days_before: list[int] | None = None
     notify_min_score: int | None = Field(default=None, ge=0, le=100)
     telegram_chat_id: str | None = None
+    phone: str | None = None
+    college: str | None = None
+    degree: str | None = None
+    branch: str | None = None
+    year_of_study: str | None = None
+    graduation_year: str | None = None
+    registration_number: str | None = None
+    city: str | None = None
+    github_url: str | None = None
+    linkedin_url: str | None = None
+    portfolio_url: str | None = None
+    resume_url: str | None = None
+    bio: str | None = None
+    experience: str | None = None
+    achievements: str | None = None
+    team_name: str | None = None
 
 
 class ProfileOut(BaseModel):
@@ -106,6 +122,22 @@ class ProfileOut(BaseModel):
     notify_days_before: list[int] = []
     notify_min_score: int = 60
     telegram_chat_id: str = ""
+    phone: str = ""
+    college: str = ""
+    degree: str = ""
+    branch: str = ""
+    year_of_study: str = ""
+    graduation_year: str = ""
+    registration_number: str = ""
+    city: str = ""
+    github_url: str = ""
+    linkedin_url: str = ""
+    portfolio_url: str = ""
+    resume_url: str = ""
+    bio: str = ""
+    experience: str = ""
+    achievements: str = ""
+    team_name: str = ""
     updated_at: datetime | None = None
 
 
@@ -241,6 +273,68 @@ class AdminOverviewOut(BaseModel):
     failed_logins_today: int
     #: Status of the transport that delivers verification codes.
     email: dict
+
+
+# --------------------------------------------------------------------------
+# Form filler
+# --------------------------------------------------------------------------
+
+
+class FormFieldIn(BaseModel):
+    """One field as the extension found it on the page."""
+
+    label: str = ""
+    name: str = ""
+    type: str = "text"
+    options: list[str] = []
+
+
+class FormAnalyseIn(BaseModel):
+    fields: list[FormFieldIn]
+    page_title: str = ""
+    hackathon_id: int | None = None
+    #: Draft the open-ended answers in the same request.
+    write_answers: bool = True
+
+
+class FormFieldOut(BaseModel):
+    label: str
+    profile_field: str | None = None
+    value: str = ""
+    confidence: float = 0.0
+    #: fill | generate | skip | sensitive
+    action: str = "skip"
+    reason: str = ""
+
+
+class FormAnalyseOut(BaseModel):
+    hackathon: str = ""
+    profile_complete: int = 0
+    total_fields: int = 0
+    will_fill: int = 0
+    needs_review: int = 0
+    left_alone: int = 0
+    fields: list[FormFieldOut] = []
+
+
+class GenerateAnswerIn(BaseModel):
+    question: str
+    kind: str | None = None
+    hackathon_id: int | None = None
+    page_title: str = ""
+
+
+class GenerateAnswerOut(BaseModel):
+    question: str
+    answer: str
+    source: str
+    kind: str
+
+
+class ProfileReadinessOut(BaseModel):
+    percent: int
+    missing: list[str] = []
+    available: list[str] = []
 
 
 class BookmarkIn(BaseModel):

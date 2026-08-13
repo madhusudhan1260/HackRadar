@@ -59,6 +59,22 @@ _ADDED_COLUMNS: list[tuple[str, str, str, str | None]] = [
     ("profiles", "user_id", "INTEGER", None),
     ("users", "email", "VARCHAR(240)", None),
     ("users", "email_verified", "BOOLEAN", "false"),
+    ("profiles", "phone", "VARCHAR(24)", "empty"),
+    ("profiles", "college", "VARCHAR(200)", "empty"),
+    ("profiles", "degree", "VARCHAR(80)", "empty"),
+    ("profiles", "branch", "VARCHAR(120)", "empty"),
+    ("profiles", "year_of_study", "VARCHAR(40)", "empty"),
+    ("profiles", "graduation_year", "VARCHAR(8)", "empty"),
+    ("profiles", "registration_number", "VARCHAR(60)", "empty"),
+    ("profiles", "city", "VARCHAR(120)", "empty"),
+    ("profiles", "github_url", "VARCHAR(300)", "empty"),
+    ("profiles", "linkedin_url", "VARCHAR(300)", "empty"),
+    ("profiles", "portfolio_url", "VARCHAR(300)", "empty"),
+    ("profiles", "resume_url", "VARCHAR(300)", "empty"),
+    ("profiles", "bio", "TEXT", "empty"),
+    ("profiles", "experience", "TEXT", "empty"),
+    ("profiles", "achievements", "TEXT", "empty"),
+    ("profiles", "team_name", "VARCHAR(120)", "empty"),
 ]
 
 #: How each backend spells a false literal.
@@ -116,6 +132,10 @@ def _apply_pending_columns() -> None:
                 literal = _FALSE_LITERAL.get(dialect, "FALSE")
                 connection.execute(
                     text(f"UPDATE {table} SET {column} = {literal} WHERE {column} IS NULL")
+                )
+            elif backfill == "empty":
+                connection.execute(
+                    text(f"UPDATE {table} SET {column} = '' WHERE {column} IS NULL")
                 )
 
 

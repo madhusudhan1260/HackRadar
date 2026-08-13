@@ -9,6 +9,20 @@ const SKILL_SUGGESTIONS = [
   'Cybersecurity', 'Blockchain', 'Solidity', 'IoT', 'UI/UX', 'Go', 'Rust',
 ]
 
+function Field({ label, value, onChange, placeholder }) {
+  return (
+    <div className="field">
+      <label>{label}</label>
+      <input
+        type="text"
+        value={value || ''}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
+  )
+}
+
 export default function ProfilePanel({ onSaved, toast }) {
   const [profile, setProfile] = useState(null)
   const [status, setStatus] = useState('')
@@ -41,6 +55,22 @@ export default function ProfilePanel({ onSaved, toast }) {
       await api.saveProfile({
         name: profile.name,
         email: profile.email,
+        phone: profile.phone,
+        college: profile.college,
+        degree: profile.degree,
+        branch: profile.branch,
+        year_of_study: profile.year_of_study,
+        graduation_year: profile.graduation_year,
+        registration_number: profile.registration_number,
+        city: profile.city,
+        github_url: profile.github_url,
+        linkedin_url: profile.linkedin_url,
+        portfolio_url: profile.portfolio_url,
+        resume_url: profile.resume_url,
+        bio: profile.bio,
+        experience: profile.experience,
+        achievements: profile.achievements,
+        team_name: profile.team_name,
         skills: profile.skills,
         interests: profile.interests,
         prefer_mode: profile.prefer_mode,
@@ -164,6 +194,67 @@ export default function ProfilePanel({ onSaved, toast }) {
             onChange={(event) => set({ notify_min_score: event.target.value })}
           />
         </div>
+      </div>
+
+      <h2 style={{ marginTop: 28 }}>📝 Application details</h2>
+      <p className="hint">
+        What hackathon forms ask for. Fill it once and the browser extension
+        completes applications from it.
+      </p>
+
+      <div className="inline-fields">
+        <Field label="Phone" value={profile.phone} onChange={(v) => set({ phone: v })}
+               placeholder="+91 98765 43210" />
+        <Field label="City" value={profile.city} onChange={(v) => set({ city: v })}
+               placeholder="Bengaluru" />
+      </div>
+
+      <Field label="College / University" value={profile.college}
+             onChange={(v) => set({ college: v })} placeholder="CMR Institute of Technology" />
+
+      <div className="inline-fields">
+        <Field label="Degree" value={profile.degree} onChange={(v) => set({ degree: v })}
+               placeholder="B.Tech" />
+        <Field label="Branch" value={profile.branch} onChange={(v) => set({ branch: v })}
+               placeholder="Computer Science Engineering" />
+        <Field label="Year of study" value={profile.year_of_study}
+               onChange={(v) => set({ year_of_study: v })} placeholder="3rd Year" />
+        <Field label="Graduation year" value={profile.graduation_year}
+               onChange={(v) => set({ graduation_year: v })} placeholder="2027" />
+      </div>
+
+      <div className="inline-fields">
+        <Field label="Registration / roll number" value={profile.registration_number}
+               onChange={(v) => set({ registration_number: v })} placeholder="1CR22CS045" />
+        <Field label="Team name (optional)" value={profile.team_name}
+               onChange={(v) => set({ team_name: v })} placeholder="Byte Squad" />
+      </div>
+
+      <div className="inline-fields">
+        <Field label="GitHub" value={profile.github_url} onChange={(v) => set({ github_url: v })}
+               placeholder="https://github.com/you" />
+        <Field label="LinkedIn" value={profile.linkedin_url}
+               onChange={(v) => set({ linkedin_url: v })} placeholder="https://linkedin.com/in/you" />
+      </div>
+
+      <div className="inline-fields">
+        <Field label="Portfolio" value={profile.portfolio_url}
+               onChange={(v) => set({ portfolio_url: v })} placeholder="https://yoursite.dev" />
+        <Field label="Resume link" value={profile.resume_url}
+               onChange={(v) => set({ resume_url: v })} placeholder="https://drive.google.com/…" />
+      </div>
+
+      <div className="field">
+        <label>Short bio</label>
+        <textarea rows={3} value={profile.bio || ''} placeholder="Two lines about you."
+                  onChange={(e) => set({ bio: e.target.value })} />
+      </div>
+
+      <div className="field">
+        <label>Experience</label>
+        <textarea rows={3} value={profile.experience || ''}
+                  placeholder="Past hackathons, internships, notable projects."
+                  onChange={(e) => set({ experience: e.target.value })} />
       </div>
 
       <button className="btn primary" onClick={save}>

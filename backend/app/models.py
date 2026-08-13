@@ -177,7 +177,11 @@ class LoginEvent(Base):
 
 
 class Profile(Base):
-    """The user's skill profile. Drives the AI match score."""
+    """The user's profile.
+
+    Two jobs: it drives the match score, and it is the source the form
+    filler draws from when completing a hackathon application.
+    """
 
     __tablename__ = "profiles"
 
@@ -189,6 +193,27 @@ class Profile(Base):
     email: Mapped[str] = mapped_column(String(240), default="")
     skills: Mapped[list[str]] = mapped_column(JSON, default=list)
     interests: Mapped[list[str]] = mapped_column(JSON, default=list)
+
+    # --- application details -------------------------------------------
+    # Everything a hackathon form typically asks for, entered once.
+    phone: Mapped[str] = mapped_column(String(24), default="")
+    college: Mapped[str] = mapped_column(String(200), default="")
+    degree: Mapped[str] = mapped_column(String(80), default="")
+    branch: Mapped[str] = mapped_column(String(120), default="")
+    year_of_study: Mapped[str] = mapped_column(String(40), default="")
+    graduation_year: Mapped[str] = mapped_column(String(8), default="")
+    registration_number: Mapped[str] = mapped_column(String(60), default="")
+    city: Mapped[str] = mapped_column(String(120), default="")
+
+    github_url: Mapped[str] = mapped_column(String(300), default="")
+    linkedin_url: Mapped[str] = mapped_column(String(300), default="")
+    portfolio_url: Mapped[str] = mapped_column(String(300), default="")
+    resume_url: Mapped[str] = mapped_column(String(300), default="")
+
+    bio: Mapped[str] = mapped_column(Text, default="")
+    experience: Mapped[str] = mapped_column(Text, default="")
+    achievements: Mapped[str] = mapped_column(Text, default="")
+    team_name: Mapped[str] = mapped_column(String(120), default="")
 
     # preference weights used when ranking
     prefer_mode: Mapped[str] = mapped_column(String(20), default="any")  # any|online|offline

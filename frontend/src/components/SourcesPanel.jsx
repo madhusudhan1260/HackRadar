@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 
-export default function SourcesPanel({ onIngested }) {
+export default function SourcesPanel({ onIngested, toast }) {
   const [sources, setSources] = useState(null)
   const [alerts, setAlerts] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -29,9 +29,14 @@ export default function SourcesPanel({ onIngested }) {
           )
           .join('\n'),
       )
+      const added = results.reduce((n, r) => n + (r.created || 0), 0)
+      const failed = results.filter((r) => !r.ok)
+      if (failed.length) toast?.error(`${failed.map((r) => r.source).join(', ')} failed`)
+      else toast?.success(added ? `${added} new hackathon(s) added` : 'Already up to date')
       load()
       onIngested?.()
     } catch (err) {
+      toast?.error(err.message)
       setLog(`Failed: ${err.message}`)
     } finally {
       setBusy(false)

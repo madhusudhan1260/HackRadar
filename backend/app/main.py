@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -68,15 +69,22 @@ def _check_admin_integrity() -> None:
 
 
 def _bootstrap_if_empty() -> None:
-    """First run with an empty table: load the offline seed set immediately."""
+    """First run with an empty table: pull real listings in the background.
+
+    Deliberately does NOT load the bundled sample data — those rows link to
+    example.com, which is fine for tests but looks broken to a real visitor.
+    """
     db = SessionLocal()
     try:
         count = db.scalar(select(func.count(Hackathon.id))) or 0
-        if count == 0:
-            log.info("Empty database — loading seed data")
-            pipeline.run_collector(db, "seed")
     finally:
         db.close()
+
+    if count:
+        return
+
+    log.info("Empty database — fetching real listings in the background")
+    threading.Thread(target=_scheduled_ingest, daemon=True).start()
 
 
 @asynccontextmanager

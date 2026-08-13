@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
+import { ConfirmDialog, PromptDialog } from '../components/Dialog'
 
 function when(value) {
   if (!value) return 'never'
@@ -13,7 +14,7 @@ function when(value) {
   })
 }
 
-export default function AdminPortal() {
+export default function AdminPortal({ toast }) {
   const [overview, setOverview] = useState(null)
   const [users, setUsers] = useState([])
   const [events, setEvents] = useState([])
@@ -23,6 +24,8 @@ export default function AdminPortal() {
   const [onlyFailed, setOnlyFailed] = useState(false)
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState(null)
+  //  { kind: 'reset' | 'block' | 'signout', user }
+  const [dialog, setDialog] = useState(null)
 
   const load = useCallback(() => {
     setError('')
@@ -42,51 +45,16 @@ export default function AdminPortal() {
     return () => clearTimeout(timer)
   }, [load])
 
-  const toggleBlock = async (user) => {
-    setBusyId(user.id)
+  const runAction = async (label, action) => {
+    setBusyId(dialog?.user?.id ?? null)
     try {
-      await api.adminSetStatus(user.id, user.status === 'blocked' ? 'active' : 'blocked')
-      load()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  const resetPassword = async (user) => {
-    // Passwords are bcrypt hashes and cannot be read back, so helping a
-    // locked-out user means setting a new one and handing it over.
-    const next = window.prompt(
-      `Set a NEW password for ${user.name} (@${user.username}, ${user.phone}).\n\n` +
-        'Their old password cannot be recovered — it is stored hashed.\n' +
-        'Send this new one to them privately, and tell them to change it.',
-    )
-    if (!next) return
-
-    setBusyId(user.id)
-    try {
-      const result = await api.adminResetPassword(user.id, next)
+      const result = await action()
       setError('')
-      alert(
-        `${result.message}\n\nSigned out of ${result.sessions_revoked} device(s).`,
-      )
+      toast.success(result?.message || label)
       load()
+      setDialog(null)
     } catch (err) {
-      setError(err.message)
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  const forceSignout = async (user) => {
-    setBusyId(user.id)
-    try {
-      const result = await api.adminForceSignout(user.id)
-      setError('')
-      alert(`Signed ${user.username} out of ${result.sessions_revoked} session(s).`)
-      load()
-    } catch (err) {
+      toast.error(err.message)
       setError(err.message)
     } finally {
       setBusyId(null)
@@ -203,7 +171,7 @@ export default function AdminPortal() {
                       <button
                         className="link-btn"
                         disabled={busyId === user.id}
-                        onClick={() => resetPassword(user)}
+                        onClick={() => setDialog({ kind: 'reset', user })}
                       >
                         Reset password
                       </button>
@@ -211,7 +179,7 @@ export default function AdminPortal() {
                         <button
                           className="link-btn"
                           disabled={busyId === user.id}
-                          onClick={() => forceSignout(user)}
+                          onClick={() => setDialog({ kind: 'signout', user })}
                         >
                           Sign out ({user.active_sessions})
                         </button>
@@ -220,7 +188,7 @@ export default function AdminPortal() {
                         <button
                           className="link-btn danger"
                           disabled={busyId === user.id}
-                          onClick={() => toggleBlock(user)}
+                          onClick={() => setDialog({ kind: 'block', user })}
                         >
                           {user.status === 'blocked' ? 'Unblock' : 'Block'}
                         </button>
@@ -239,6 +207,68 @@ export default function AdminPortal() {
             </table>
           </div>
         </>
+      )}
+
+      {dialog?.kind === 'reset' && (
+        <PromptDialog
+          title={`Reset password for ${dialog.user.name}`}
+          message={
+            `@${dialog.user.username} · ${dialog.user.phone}. Their current password ` +
+            'cannot be recovered — it is stored hashed. Set a new one and send it to ' +
+            'them privately, then ask them to change it.'
+          }
+          label="New password"
+          type="password"
+          placeholder="At least 8 characters"
+          confirmLabel="Set password"
+          busy={busyId === dialog.user.id}
+          validate={(v) => (v.length < 8 ? 'Use at least 8 characters.' : '')}
+          onClose={() => setDialog(null)}
+          onSubmit={(value) =>
+            runAction('Password updated', () => api.adminResetPassword(dialog.user.id, value))
+          }
+        />
+      )}
+
+      {dialog?.kind === 'block' && (
+        <ConfirmDialog
+          title={dialog.user.status === 'blocked' ? 'Unblock account' : 'Block account'}
+          message={
+            dialog.user.status === 'blocked'
+              ? `${dialog.user.name} (@${dialog.user.username}) will be able to sign in again.`
+              : `${dialog.user.name} (@${dialog.user.username}) will be signed out everywhere and ` +
+                'refused at login until you unblock them.'
+          }
+          confirmLabel={dialog.user.status === 'blocked' ? 'Unblock' : 'Block'}
+          danger={dialog.user.status !== 'blocked'}
+          busy={busyId === dialog.user.id}
+          onClose={() => setDialog(null)}
+          onConfirm={() =>
+            runAction(
+              dialog.user.status === 'blocked' ? 'Account unblocked' : 'Account blocked',
+              () =>
+                api.adminSetStatus(
+                  dialog.user.id,
+                  dialog.user.status === 'blocked' ? 'active' : 'blocked',
+                ),
+            )
+          }
+        />
+      )}
+
+      {dialog?.kind === 'signout' && (
+        <ConfirmDialog
+          title="Sign out everywhere"
+          message={`End all ${dialog.user.active_sessions} active session(s) for ${dialog.user.name}. They will need to sign in again.`}
+          confirmLabel="Sign them out"
+          busy={busyId === dialog.user.id}
+          onClose={() => setDialog(null)}
+          onConfirm={() =>
+            runAction('Signed out of all devices', () =>
+              api.adminForceSignout(dialog.user.id),
+            )
+          }
+        />
       )}
 
       {tab === 'activity' && (

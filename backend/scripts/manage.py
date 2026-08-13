@@ -312,6 +312,44 @@ def cmd_test_sms(args) -> None:
         print(f"\n  FAILED — {result.note}")
 
 
+def cmd_purge_source(args) -> None:
+    """Delete every listing that came from one collector."""
+    from sqlalchemy import select as sa_select
+
+    from app.models import Bookmark, Hackathon
+
+    init_db()
+    db = SessionLocal()
+    try:
+        rows = db.scalars(
+            sa_select(Hackathon).where(Hackathon.source == args.source)
+        ).all()
+        if not rows:
+            print(f"Nothing stored from '{args.source}'.")
+            return
+
+        ids = {r.id for r in rows}
+        marks = db.scalars(
+            sa_select(Bookmark).where(Bookmark.hackathon_id.in_(ids))
+        ).all()
+
+        if not args.yes:
+            print(f"About to delete {len(rows)} listing(s) from '{args.source}'")
+            print(f"and {len(marks)} bookmark(s) pointing at them.")
+            if input("Continue? [y/N] ").strip().lower() != "y":
+                print("Aborted.")
+                return
+
+        for mark in marks:
+            db.delete(mark)
+        for row in rows:
+            db.delete(row)
+        db.commit()
+        print(f"Deleted {len(rows)} listing(s) from '{args.source}'.")
+    finally:
+        db.close()
+
+
 def cmd_reset(args) -> None:
     if not args.yes:
         confirm = input("Drop all tables and recreate? [y/N] ").strip().lower()
@@ -366,6 +404,11 @@ def main() -> None:
 
     p_users = sub.add_parser("users", help="List registered accounts")
     p_users.set_defaults(func=cmd_users)
+
+    p_purge = sub.add_parser("purge-source", help="Delete all listings from one source")
+    p_purge.add_argument("source", help="Collector name, e.g. seed")
+    p_purge.add_argument("--yes", action="store_true")
+    p_purge.set_defaults(func=cmd_purge_source)
 
     p_reset = sub.add_parser("reset", help="Drop and recreate all tables")
     p_reset.add_argument("--yes", action="store_true")

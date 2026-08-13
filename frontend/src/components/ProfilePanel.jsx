@@ -9,7 +9,7 @@ const SKILL_SUGGESTIONS = [
   'Cybersecurity', 'Blockchain', 'Solidity', 'IoT', 'UI/UX', 'Go', 'Rust',
 ]
 
-export default function ProfilePanel({ onSaved }) {
+export default function ProfilePanel({ onSaved, toast }) {
   const [profile, setProfile] = useState(null)
   const [status, setStatus] = useState('')
   const [error, setError] = useState(null)
@@ -51,11 +51,12 @@ export default function ProfilePanel({ onSaved }) {
         notify_min_score: Number(profile.notify_min_score) || 0,
         telegram_chat_id: profile.telegram_chat_id,
       })
-      setStatus('Saved — match scores updated')
+      setStatus('')
+      toast?.success('Profile saved — match scores updated')
       onSaved?.()
-      setTimeout(() => setStatus(''), 2500)
     } catch (err) {
-      setStatus(`Failed: ${err.message}`)
+      setStatus('')
+      toast?.error(err.message)
     }
   }
 

@@ -22,9 +22,12 @@ class Settings:
 
     # --- Collectors -----------------------------------------------------
     # Comma separated list of collector names to run. See app/collectors.
+    # Real sources only by default. The 'seed' collector is bundled sample
+    # data whose links point at example.com — fine for offline development
+    # and tests, never for a site anyone will actually click through.
     ENABLED_COLLECTORS: list[str] = [
         c.strip()
-        for c in os.getenv("ENABLED_COLLECTORS", "seed,devpost,mlh").split(",")
+        for c in os.getenv("ENABLED_COLLECTORS", "devpost,mlh").split(",")
         if c.strip()
     ]
     HTTP_TIMEOUT: float = float(os.getenv("HTTP_TIMEOUT", "20"))

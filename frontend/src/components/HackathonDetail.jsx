@@ -1,7 +1,33 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { categoryLabel, formatDate, matchColor, modeIcon } from '../format'
 
+/** Build an .ics file so the deadline lands in the user's calendar. */
+function calendarFile(item) {
+  const stamp = (value) => `${String(value).replace(/-/g, '')}`
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//HackRadar//EN',
+    'BEGIN:VEVENT',
+    `UID:hackradar-${item.id}@hackradar`,
+    `DTSTART;VALUE=DATE:${stamp(item.deadline)}`,
+    `DTEND;VALUE=DATE:${stamp(item.deadline)}`,
+    `SUMMARY:Deadline — ${item.title}`,
+    `DESCRIPTION:${(item.description || '').replace(/[\n,;]/g, ' ').slice(0, 300)}\\n${item.url}`,
+    `URL:${item.url}`,
+    'BEGIN:VALARM',
+    'TRIGGER:-P1D',
+    'ACTION:DISPLAY',
+    'DESCRIPTION:Hackathon deadline tomorrow',
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ]
+  return new Blob([lines.join('\r\n')], { type: 'text/calendar' })
+}
+
 export default function HackathonDetail({ item, onClose, onToggleBookmark }) {
+  const [copied, setCopied] = useState(false)
   useEffect(() => {
     const onKey = (event) => event.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
@@ -10,6 +36,35 @@ export default function HackathonDetail({ item, onClose, onToggleBookmark }) {
 
   if (!item) return null
   const match = item.match
+
+  const share = async () => {
+    const link = `${window.location.origin}/hackathon/${item.id}`
+    // Use the native share sheet on mobile, clipboard everywhere else.
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: item.title, url: link })
+        return
+      } catch {
+        /* user dismissed the sheet — fall through to copying */
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* clipboard blocked (needs https or permission) */
+    }
+  }
+
+  const addToCalendar = () => {
+    const url = URL.createObjectURL(calendarFile(item))
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `${item.title.replace(/[^\w]+/g, '-').slice(0, 50)}.ics`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -126,6 +181,17 @@ export default function HackathonDetail({ item, onClose, onToggleBookmark }) {
           <button className="btn" onClick={() => onToggleBookmark(item)}>
             {item.bookmarked ? '★ Saved' : '☆ Save'}
           </button>
+        </div>
+
+        <div className="modal-actions secondary">
+          <button className="btn" onClick={share}>
+            {copied ? '✓ Link copied' : '🔗 Share'}
+          </button>
+          {item.deadline && (
+            <button className="btn" onClick={addToCalendar}>
+              📅 Add to calendar
+            </button>
+          )}
           <button className="btn" onClick={onClose}>
             Close
           </button>

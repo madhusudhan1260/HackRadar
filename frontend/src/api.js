@@ -153,6 +153,9 @@ export const api = {
   ingest: (sources) => post('/ingest', { sources: sources ?? null, limit: 200 }),
   notificationPreview: () => request('/notifications/preview'),
 
+  // --- skill builder ----------------------------------------------------
+  skillGaps: () => request('/skills/gaps'),
+
   // --- form filler ----------------------------------------------------
   formReadiness: () => request('/form/readiness'),
   analyseForm: (payload) => post('/form/analyse', payload),

@@ -337,6 +337,22 @@ class ProfileReadinessOut(BaseModel):
     available: list[str] = []
 
 
+class SkillGapOut(BaseModel):
+    skill: str
+    events_seen: int
+    would_unlock: int
+    avg_gain: float
+    sample_titles: list[str] = []
+    resource_label: str = ""
+    resource_url: str = ""
+
+
+class SkillGapsOut(BaseModel):
+    total_open: int
+    currently_good: int
+    skills: list[SkillGapOut] = []
+
+
 class BookmarkIn(BaseModel):
     hackathon_id: int
     note: str = ""

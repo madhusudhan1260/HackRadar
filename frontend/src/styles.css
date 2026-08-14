@@ -2241,3 +2241,218 @@ a { color: inherit; }
   .discover-split { grid-template-columns: minmax(0, 1fr); }
   .assistant { position: static; max-height: none; order: -1; }
 }
+
+/* ================================================================
+   Hub — the landing screen right after sign-in
+   ================================================================ */
+
+.hub {
+  max-width: 980px;
+  margin: 0 auto;
+  padding-top: var(--sp-4);
+}
+
+.hub-greeting h1 {
+  margin: 0 0 4px;
+  font-size: var(--fs-3xl);
+  letter-spacing: var(--tracking-tight);
+}
+
+.hub-greeting p {
+  margin: 0 0 var(--sp-8);
+  color: var(--text-faint);
+  font-size: var(--fs-md);
+}
+
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-5);
+}
+
+.hub-card {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: var(--text);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: var(--sp-6);
+  min-height: 230px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.3, 1), border-color 0.18s, box-shadow 0.18s;
+  animation: card-in 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+.hub-card:nth-child(1) { animation-delay: 0ms; }
+.hub-card:nth-child(2) { animation-delay: 70ms; }
+.hub-card:nth-child(3) { animation-delay: 140ms; }
+
+.hub-card::before {
+  content: '';
+  position: absolute;
+  inset: -40% -40% auto auto;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  filter: blur(50px);
+  opacity: 0.35;
+  transition: opacity 0.2s;
+}
+
+.hub-card.hackathons::before { background: #6366f1; }
+.hub-card.formfill::before { background: #a855f7; }
+.hub-card.skills::before { background: #10b981; }
+
+.hub-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-strong);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+.hub-card:hover::before { opacity: 0.55; }
+
+.hub-icon {
+  font-size: 34px;
+  margin-bottom: var(--sp-3);
+}
+
+.hub-card h2 {
+  margin: 0 0 6px;
+  font-size: var(--fs-lg);
+  letter-spacing: var(--tracking-tight);
+}
+
+.hub-card p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+  flex: 1;
+}
+
+.hub-stat {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  margin: var(--sp-3) 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.hub-stat strong { color: var(--text); }
+.hub-stat-hot { color: var(--hot); }
+.hub-stat-warn { color: var(--warn); }
+
+.hub-go {
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  color: var(--accent-text);
+  margin-top: auto;
+}
+
+@media (max-width: 900px) {
+  .hub-grid { grid-template-columns: 1fr; }
+}
+
+/* ================================================================
+   Application AI — shared core + full page
+   ================================================================ */
+
+.assist-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-3);
+}
+
+.page-formfiller .assistant-core .assist-card,
+.page-formfiller .assist-card {
+  padding: var(--sp-4);
+}
+
+@media (max-width: 760px) {
+  .assist-grid { grid-template-columns: 1fr; }
+}
+
+.page-title {
+  margin: var(--sp-3) 0 6px;
+  font-size: var(--fs-2xl);
+  letter-spacing: var(--tracking-tight);
+}
+
+/* ================================================================
+   Skill Builder
+   ================================================================ */
+
+.skill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--sp-4);
+  margin-top: var(--sp-4);
+}
+
+.skill-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  animation: card-in 0.4s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: calc(min(var(--stagger, 0), 10) * 45ms);
+}
+
+.skill-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.skill-head h3 {
+  margin: 0;
+  font-size: var(--fs-md);
+  letter-spacing: var(--tracking-tight);
+}
+
+.skill-unlock {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--good-soft);
+  color: var(--good);
+  white-space: nowrap;
+}
+
+.skill-unlock.dim { background: var(--bg-elev-2); color: var(--text-faint); }
+
+.skill-detail {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  line-height: var(--lh-body);
+}
+
+.skill-detail strong { color: var(--text); }
+
+.skill-examples {
+  margin: 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+  line-height: var(--lh-snug);
+}
+
+.skill-cta {
+  margin-top: auto;
+  text-decoration: none;
+  text-align: center;
+}
+
+.skill-footnote {
+  margin-top: var(--sp-6);
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  text-align: center;
+}

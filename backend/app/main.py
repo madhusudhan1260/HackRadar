@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from .config import settings
 from .db import SessionLocal, init_db
 from .models import Hackathon
-from .routers import admin, admin_users, auth, formfill, hackathons, profile
+from .routers import admin, admin_users, auth, formfill, hackathons, profile, skills
 from .services import pipeline
 
 logging.basicConfig(
@@ -236,6 +236,7 @@ app.include_router(profile.router)
 app.include_router(admin.router)
 app.include_router(admin_users.router)
 app.include_router(formfill.router)
+app.include_router(skills.router)
 
 
 @app.get("/api/health", tags=["meta"])

@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 
 /**
- * The AI column beside the hackathon list.
+ * The AI application assistant.
  *
- * Shows how ready the profile is, and drafts the answers a chosen
- * hackathon's application will ask for, so they can be copied straight
- * across. The browser extension does the actual filling on the external
- * site; this is the in-app companion to it.
+ * `ApplicationAssistant` is the shared core — profile readiness, a
+ * hackathon picker, and drafts for the questions applications actually
+ * ask. Two callers use it: the compact sidebar version embedded in
+ * Discover, and the full page reachable from the hub at /form-filler.
+ *
+ * The browser extension does the actual filling on the external site;
+ * this is where the answers get written and reviewed first.
  */
 
 const QUESTIONS = [
@@ -26,7 +29,7 @@ const FIELD_LABELS = {
   bio: 'Bio', experience: 'Experience', achievements: 'Achievements',
 }
 
-export default function AssistantPanel({ hackathons = [], toast }) {
+export function ApplicationAssistant({ hackathons = [], toast, dense = false }) {
   const [readiness, setReadiness] = useState(null)
   const [targetId, setTargetId] = useState('')
   const [answers, setAnswers] = useState({})
@@ -37,10 +40,19 @@ export default function AssistantPanel({ hackathons = [], toast }) {
     api.formReadiness().then(setReadiness).catch(() => {})
   }, [])
 
-  // Default to whatever is top of the list — usually the most urgent.
+  // Keep the selection valid as the candidate list changes (a new search,
+  // a different sort) rather than pinning to whatever loaded first.
   useEffect(() => {
-    if (!targetId && hackathons.length) setTargetId(String(hackathons[0].id))
-  }, [hackathons, targetId])
+    if (!hackathons.length) {
+      setTargetId('')
+      return
+    }
+    if (!hackathons.some((h) => String(h.id) === String(targetId))) {
+      setTargetId(String(hackathons[0].id))
+      setAnswers({})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hackathons])
 
   const target = hackathons.find((h) => String(h.id) === String(targetId))
 
@@ -72,18 +84,14 @@ export default function AssistantPanel({ hackathons = [], toast }) {
   }
 
   return (
-    <aside className="assistant">
-      <div className="assistant-head">
-        <h2>✨ Application AI</h2>
-        <p>Draft the answers an application will ask for.</p>
-      </div>
-
-      {/* --- profile readiness --- */}
+    <div className={`assistant-core ${dense ? 'dense' : ''}`}>
       {readiness && (
         <section className="assist-card">
           <div className="ready-top">
             <strong>Profile</strong>
-            <span className={`ready-pct ${readiness.percent >= 80 ? 'good' : readiness.percent >= 50 ? 'ok' : 'low'}`}>
+            <span
+              className={`ready-pct ${readiness.percent >= 80 ? 'good' : readiness.percent >= 50 ? 'ok' : 'low'}`}
+            >
               {readiness.percent}%
             </span>
           </div>
@@ -93,10 +101,7 @@ export default function AssistantPanel({ hackathons = [], toast }) {
           {readiness.missing.length > 0 ? (
             <p className="assist-note">
               Missing{' '}
-              {readiness.missing
-                .slice(0, 4)
-                .map((k) => FIELD_LABELS[k] || k)
-                .join(', ')}
+              {readiness.missing.slice(0, 4).map((k) => FIELD_LABELS[k] || k).join(', ')}
               {readiness.missing.length > 4 && ` +${readiness.missing.length - 4} more`}.
             </p>
           ) : (
@@ -105,7 +110,6 @@ export default function AssistantPanel({ hackathons = [], toast }) {
         </section>
       )}
 
-      {/* --- pick a hackathon --- */}
       <section className="assist-card">
         <label className="assist-label" htmlFor="assist-target">
           Prepare for
@@ -121,7 +125,7 @@ export default function AssistantPanel({ hackathons = [], toast }) {
           {hackathons.length === 0 && <option value="">No hackathons in view</option>}
           {hackathons.map((h) => (
             <option key={h.id} value={h.id}>
-              {h.title.slice(0, 52)}
+              {h.title.slice(0, 60)}
             </option>
           ))}
         </select>
@@ -133,49 +137,67 @@ export default function AssistantPanel({ hackathons = [], toast }) {
         )}
       </section>
 
-      {/* --- draft answers --- */}
-      {QUESTIONS.map(({ kind, label }) => {
-        const answer = answers[kind]
-        return (
-          <section className="assist-card" key={kind}>
-            <div className="assist-q">{label}</div>
+      <div className={dense ? '' : 'assist-grid'}>
+        {QUESTIONS.map(({ kind, label }) => {
+          const answer = answers[kind]
+          return (
+            <section className="assist-card" key={kind}>
+              <div className="assist-q">{label}</div>
 
-            {!answer && (
-              <button
-                className="btn"
-                disabled={!target || busyKind === kind}
-                onClick={() => write(kind, label)}
-              >
-                {busyKind === kind ? 'Writing…' : '✨ Draft answer'}
-              </button>
-            )}
+              {!answer && (
+                <button
+                  className="btn"
+                  disabled={!target || busyKind === kind}
+                  onClick={() => write(kind, label)}
+                >
+                  {busyKind === kind ? 'Writing…' : '✨ Draft answer'}
+                </button>
+              )}
 
-            {answer && (
-              <>
-                <textarea
-                  className="assist-answer"
-                  rows={6}
-                  value={answer.answer}
-                  onChange={(event) =>
-                    setAnswers((c) => ({ ...c, [kind]: { ...answer, answer: event.target.value } }))
-                  }
-                />
-                <div className="assist-actions">
-                  <span className={`src ${answer.source}`}>
-                    {answer.source === 'claude' ? 'Written by Claude' : 'Template draft'}
-                  </span>
-                  <button className="link-btn" onClick={() => write(kind, label)}>
-                    Rewrite
-                  </button>
-                  <button className="link-btn" onClick={() => copy(kind, answer.answer)}>
-                    {copied === kind ? '✓ Copied' : 'Copy'}
-                  </button>
-                </div>
-              </>
-            )}
-          </section>
-        )
-      })}
+              {answer && (
+                <>
+                  <textarea
+                    className="assist-answer"
+                    rows={dense ? 6 : 8}
+                    value={answer.answer}
+                    onChange={(event) =>
+                      setAnswers((c) => ({
+                        ...c,
+                        [kind]: { ...answer, answer: event.target.value },
+                      }))
+                    }
+                  />
+                  <div className="assist-actions">
+                    <span className={`src ${answer.source}`}>
+                      {answer.source === 'claude' ? 'Written by Claude' : 'Template draft'}
+                    </span>
+                    <button className="link-btn" onClick={() => write(kind, label)}>
+                      Rewrite
+                    </button>
+                    <button className="link-btn" onClick={() => copy(kind, answer.answer)}>
+                      {copied === kind ? '✓ Copied' : 'Copy'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </section>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/** Compact sidebar wrapper, embedded next to the Discover list. */
+export default function AssistantPanel({ hackathons = [], toast }) {
+  return (
+    <aside className="assistant">
+      <div className="assistant-head">
+        <h2>✨ Application AI</h2>
+        <p>Draft the answers an application will ask for.</p>
+      </div>
+
+      <ApplicationAssistant hackathons={hackathons} toast={toast} dense />
 
       <section className="assist-card extension-cta">
         <strong>🧩 Fill forms automatically</strong>

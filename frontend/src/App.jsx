@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  Link,
   Navigate,
   NavLink,
   Route,
@@ -21,8 +22,11 @@ import ProfilePanel from './components/ProfilePanel'
 import SourcesPanel from './components/SourcesPanel'
 import AssistantPanel from './components/AssistantPanel'
 import AdminPortal from './pages/AdminPortal'
+import FormFiller from './pages/FormFiller'
+import Hub from './pages/Hub'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
+import SkillBuilder from './pages/SkillBuilder'
 
 /** Filters that live in the URL, so a filtered view can be shared. */
 const URL_FILTERS = {
@@ -45,10 +49,13 @@ const LOCAL_FILTERS = {
 }
 
 const VIEWS = [
-  { path: '/', icon: '🔎', label: 'Discover', end: true },
+  { path: '/', icon: '🏠', label: 'Home', end: true },
+  { path: '/hackathons', icon: '🔎', label: 'Hackathons' },
   { path: '/deadlines', icon: '🔥', label: 'Deadlines' },
   { path: '/for-you', icon: '🧠', label: 'For You' },
   { path: '/saved', icon: '⭐', label: 'Saved' },
+  { path: '/form-filler', icon: '✨', label: 'Form Filling AI' },
+  { path: '/skills', icon: '🎯', label: 'Skill Builder' },
   { path: '/profile', icon: '👤', label: 'Profile' },
   { path: '/sources', icon: '🔌', label: 'Sources' },
 ]
@@ -137,10 +144,10 @@ function Dashboard({ signOut, isAdmin, user }) {
   return (
     <div className="app">
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <div className="brand">
+        <Link to="/" className="brand" onClick={() => setSidebarOpen(false)}>
           <RadarMark size={34} />
           <h1>HackRadar</h1>
-        </div>
+        </Link>
         <p className="brand-tag">One place for every hackathon</p>
 
         <nav className="nav">
@@ -154,7 +161,7 @@ function Dashboard({ signOut, isAdmin, user }) {
             >
               <span>{entry.icon}</span>
               <span>{entry.label}</span>
-              {entry.path === '/' && stats && <span className="count">{stats.open}</span>}
+              {entry.path === '/hackathons' && stats && <span className="count">{stats.open}</span>}
               {entry.path === '/deadlines' && stats && (
                 <span className="count">{stats.closing_this_week}</span>
               )}
@@ -191,7 +198,7 @@ function Dashboard({ signOut, isAdmin, user }) {
         {/* Filters only apply to the Discover list. */}
         <Routes>
           <Route
-            path="/"
+            path="/hackathons"
             element={
               <Filters
                 filters={filters}
@@ -206,13 +213,16 @@ function Dashboard({ signOut, isAdmin, user }) {
 
       <main className="main">
         <Routes>
-          <Route path="/" element={<ListView key="discover" view="discover" {...shared} />} />
+          <Route path="/" element={<Hub user={user} />} />
+          <Route path="/hackathons" element={<ListView key="discover" view="discover" {...shared} />} />
           <Route path="/saved" element={<ListView key="saved" view="saved" {...shared} />} />
           <Route path="/for-you" element={<ListView key="foryou" view="foryou" {...shared} />} />
           <Route
             path="/deadlines"
             element={<DeadlineBoard onOpen={openDetail} refreshKey={refreshKey} />}
           />
+          <Route path="/form-filler" element={<FormFiller toast={toast} />} />
+          <Route path="/skills" element={<SkillBuilder toast={toast} />} />
           <Route path="/profile" element={<ProfilePanel onSaved={bumpRefresh} toast={toast} />} />
           <Route
             path="/sources"
@@ -277,7 +287,7 @@ function DetailRoute() {
       <div className="empty">
         <div className="big">🔍</div>
         <p>{error}</p>
-        <button className="btn" onClick={() => navigate('/')}>
+        <button className="btn" onClick={() => navigate('/hackathons')}>
           Back to Discover
         </button>
       </div>
@@ -289,7 +299,7 @@ function DetailRoute() {
   return (
     <HackathonDetail
       item={item}
-      onClose={() => navigate('/')}
+      onClose={() => navigate('/hackathons')}
       onToggleBookmark={toggleBookmark}
     />
   )

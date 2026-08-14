@@ -13,8 +13,8 @@ from sqlalchemy import func, select
 from .config import settings
 from .db import SessionLocal, init_db
 from .models import Hackathon
-from .routers import admin, admin_users, auth, formfill, hackathons, profile, skills
-from .services import pipeline
+from .routers import admin, admin_users, auth, formfill, hackathons, internships, profile, skills
+from .services import internship_pipeline, pipeline
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -30,6 +30,47 @@ def _scheduled_ingest() -> None:
         log.info("Scheduled ingest starting")
         results = pipeline.run_all(db)
         pipeline.close_expired(db)
+        for r in results:
+            log.info(
+                "  %s: fetched=%s created=%s updated=%s ok=%s",
+                r["source"], r["fetched"], r["created"], r["updated"], r["ok"],
+            )
+    finally:
+        db.close()
+
+
+def _scheduled_notify() -> None:
+    """Send deadline alerts for every profile that has one due.
+
+    Safe to call as often as you like: NotificationLog records exactly
+    which (profile, hackathon, window) combinations already went out, so
+    re-running this never double-sends.
+    """
+    from .models import Profile
+    from .services.notifier import dispatch
+
+    db = SessionLocal()
+    try:
+        profiles = db.scalars(select(Profile)).all()
+        total_sent = 0
+        for profile in profiles:
+            try:
+                result = dispatch(db, profile)
+                total_sent += result["sent"]
+            except Exception:
+                log.exception("Deadline dispatch failed for profile %s", profile.id)
+        if total_sent:
+            log.info("Deadline alerts: sent %s across %s profile(s)", total_sent, len(profiles))
+    finally:
+        db.close()
+
+
+def _scheduled_internship_ingest() -> None:
+    db = SessionLocal()
+    try:
+        log.info("Scheduled internship ingest starting")
+        results = internship_pipeline.run_all(db)
+        internship_pipeline.close_expired(db)
         for r in results:
             log.info(
                 "  %s: fetched=%s created=%s updated=%s ok=%s",
@@ -169,17 +210,21 @@ def _bootstrap_if_empty() -> None:
     Deliberately does NOT load the bundled sample data — those rows link to
     example.com, which is fine for tests but looks broken to a real visitor.
     """
+    from .models import Internship
+
     db = SessionLocal()
     try:
-        count = db.scalar(select(func.count(Hackathon.id))) or 0
+        hackathon_count = db.scalar(select(func.count(Hackathon.id))) or 0
+        internship_count = db.scalar(select(func.count(Internship.id))) or 0
     finally:
         db.close()
 
-    if count:
+    if hackathon_count and internship_count:
         return
 
     log.info("Empty database — fetching real listings in the background")
     threading.Thread(target=_scheduled_ingest, daemon=True).start()
+    threading.Thread(target=_scheduled_internship_ingest, daemon=True).start()
 
 
 @asynccontextmanager
@@ -199,6 +244,19 @@ async def lifespan(app: FastAPI):
             minutes=settings.INGEST_INTERVAL_MINUTES,
             id="ingest",
         )
+        scheduler.add_job(
+            _scheduled_internship_ingest,
+            "interval",
+            minutes=settings.INGEST_INTERVAL_MINUTES,
+            id="internship_ingest",
+        )
+        if settings.RUN_NOTIFIER:
+            scheduler.add_job(
+                _scheduled_notify,
+                "interval",
+                minutes=settings.NOTIFY_INTERVAL_MINUTES,
+                id="notify",
+            )
         scheduler.start()
         log.info(
             "Scheduler on — ingesting %s every %s min",
@@ -237,6 +295,7 @@ app.include_router(admin.router)
 app.include_router(admin_users.router)
 app.include_router(formfill.router)
 app.include_router(skills.router)
+app.include_router(internships.router)
 
 
 @app.get("/api/health", tags=["meta"])

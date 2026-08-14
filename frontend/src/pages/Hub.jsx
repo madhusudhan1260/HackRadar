@@ -4,19 +4,21 @@ import { api } from '../api'
 import CountUp from '../components/CountUp'
 
 /**
- * The landing screen right after sign-in: three doors, nothing else.
- * Each card is a real destination, not a teaser — clicking it opens that
- * page directly.
+ * The landing screen right after sign-in: a handful of doors, nothing
+ * else. Each card is a real destination, not a teaser — clicking it opens
+ * that page directly.
  */
 export default function Hub({ user }) {
   const [stats, setStats] = useState(null)
   const [readiness, setReadiness] = useState(null)
   const [gaps, setGaps] = useState(null)
+  const [internStats, setInternStats] = useState(null)
 
   useEffect(() => {
     api.stats().then(setStats).catch(() => {})
     api.formReadiness().then(setReadiness).catch(() => {})
     api.skillGaps().then(setGaps).catch(() => {})
+    api.internshipStats().then(setInternStats).catch(() => {})
   }, [])
 
   const firstName = (user?.name || '').split(' ')[0] || user?.username
@@ -63,6 +65,23 @@ export default function Hub({ user }) {
             )}
           </div>
           <span className="hub-go">Open form filler →</span>
+        </Link>
+
+        <Link to="/internships" className="hub-card internships">
+          <div className="hub-icon">💼</div>
+          <h2>Internships</h2>
+          <p>Real tech internships from Remotive and an open listings tracker.</p>
+          <div className="hub-stat">
+            {internStats ? (
+              <>
+                <CountUp value={internStats.open} /> open ·{' '}
+                {internStats.remote} remote
+              </>
+            ) : (
+              'Loading…'
+            )}
+          </div>
+          <span className="hub-go">Browse internships →</span>
         </Link>
 
         <Link to="/skills" className="hub-card skills">

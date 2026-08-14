@@ -2266,7 +2266,7 @@ a { color: inherit; }
 
 .hub-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--sp-5);
 }
 
@@ -2287,8 +2287,9 @@ a { color: inherit; }
 }
 
 .hub-card:nth-child(1) { animation-delay: 0ms; }
-.hub-card:nth-child(2) { animation-delay: 70ms; }
-.hub-card:nth-child(3) { animation-delay: 140ms; }
+.hub-card:nth-child(2) { animation-delay: 60ms; }
+.hub-card:nth-child(3) { animation-delay: 120ms; }
+.hub-card:nth-child(4) { animation-delay: 180ms; }
 
 .hub-card::before {
   content: '';
@@ -2305,6 +2306,7 @@ a { color: inherit; }
 .hub-card.hackathons::before { background: #6366f1; }
 .hub-card.formfill::before { background: #a855f7; }
 .hub-card.skills::before { background: #10b981; }
+.hub-card.internships::before { background: #f59e0b; }
 
 .hub-card:hover {
   transform: translateY(-4px);

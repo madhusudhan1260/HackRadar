@@ -176,6 +176,81 @@ class LoginEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
 
 
+class Internship(Base):
+    """An internship listing. Deliberately its own table, not a repurposed
+    Hackathon row — stipend/company/duration don't map onto prize/organizer/
+    team_size cleanly, and forcing the fit would corrupt both."""
+
+    __tablename__ = "internships"
+    __table_args__ = (
+        UniqueConstraint("source", "source_id", name="uq_internship_source"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    source: Mapped[str] = mapped_column(String(40), index=True)
+    source_id: Mapped[str] = mapped_column(String(200))
+    url: Mapped[str] = mapped_column(String(600))
+    cluster_key: Mapped[str] = mapped_column(String(200), index=True, default="")
+
+    title: Mapped[str] = mapped_column(String(400), index=True)
+    company: Mapped[str] = mapped_column(String(240), default="")
+    company_url: Mapped[str] = mapped_column(String(400), default="")
+    description: Mapped[str] = mapped_column(Text, default="")
+
+    # Most sources publish no firm apply-by date, so deadline stays nullable
+    # far more often here than for hackathons; `term` ("Summer 2026") is the
+    # fallback signal shown when there is no deadline.
+    deadline: Mapped[date | None] = mapped_column(Date, index=True, nullable=True)
+    posted_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    term: Mapped[str] = mapped_column(String(80), default="")
+
+    mode: Mapped[str] = mapped_column(String(20), default="onsite")  # remote|onsite|hybrid
+    location: Mapped[str] = mapped_column(String(240), default="")
+    country: Mapped[str] = mapped_column(String(80), default="")
+    is_india: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
+    stipend_text: Mapped[str] = mapped_column(String(240), default="")
+    stipend_inr: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    is_paid: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+
+    duration_text: Mapped[str] = mapped_column(String(120), default="")
+    eligibility: Mapped[str] = mapped_column(String(240), default="")
+
+    categories: Mapped[list[str]] = mapped_column(JSON, default=list)
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list)
+
+    status: Mapped[str] = mapped_column(String(20), default="open")
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=utcnow, onupdate=utcnow
+    )
+    raw: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    bookmarks: Mapped[list["InternshipBookmark"]] = relationship(
+        back_populates="internship", cascade="all, delete-orphan"
+    )
+
+
+class InternshipBookmark(Base):
+    """Kept separate from Bookmark so hackathon saves are never at risk of
+    a schema change made for internships, or vice versa."""
+
+    __tablename__ = "internship_bookmarks"
+    __table_args__ = (
+        UniqueConstraint("profile_id", "internship_id", name="uq_internship_bookmark"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("profiles.id"), index=True)
+    internship_id: Mapped[int] = mapped_column(
+        ForeignKey("internships.id", ondelete="CASCADE"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    internship: Mapped[Internship] = relationship(back_populates="bookmarks")
+
+
 class Profile(Base):
     """The user's profile.
 
@@ -274,6 +349,22 @@ class IngestRun(Base):
     """One row per collector run — useful for the /health and admin views."""
 
     __tablename__ = "ingest_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source: Mapped[str] = mapped_column(String(40), index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    fetched: Mapped[int] = mapped_column(Integer, default=0)
+    created: Mapped[int] = mapped_column(Integer, default=0)
+    updated: Mapped[int] = mapped_column(Integer, default=0)
+    ok: Mapped[bool] = mapped_column(Boolean, default=True)
+    error: Mapped[str] = mapped_column(Text, default="")
+
+
+class InternshipIngestRun(Base):
+    """One row per internship collector run — mirrors IngestRun."""
+
+    __tablename__ = "internship_ingest_runs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     source: Mapped[str] = mapped_column(String(40), index=True)

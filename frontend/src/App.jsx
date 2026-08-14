@@ -24,6 +24,7 @@ import AssistantPanel from './components/AssistantPanel'
 import AdminPortal from './pages/AdminPortal'
 import FormFiller from './pages/FormFiller'
 import Hub from './pages/Hub'
+import Internships from './pages/Internships'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
 import SkillBuilder from './pages/SkillBuilder'
@@ -51,6 +52,7 @@ const LOCAL_FILTERS = {
 const VIEWS = [
   { path: '/', icon: '🏠', label: 'Home', end: true },
   { path: '/hackathons', icon: '🔎', label: 'Hackathons' },
+  { path: '/internships', icon: '💼', label: 'Internships' },
   { path: '/deadlines', icon: '🔥', label: 'Deadlines' },
   { path: '/for-you', icon: '🧠', label: 'For You' },
   { path: '/saved', icon: '⭐', label: 'Saved' },
@@ -223,6 +225,7 @@ function Dashboard({ signOut, isAdmin, user }) {
           />
           <Route path="/form-filler" element={<FormFiller toast={toast} />} />
           <Route path="/skills" element={<SkillBuilder toast={toast} />} />
+          <Route path="/internships" element={<Internships toast={toast} />} />
           <Route path="/profile" element={<ProfilePanel onSaved={bumpRefresh} toast={toast} />} />
           <Route
             path="/sources"

@@ -90,6 +90,37 @@ _PURPOSE_TEXT = {
 }
 
 
+def send(to: str, subject: str, text: str, html: str) -> SendResult:
+    """Send arbitrary email through whichever transport is configured.
+
+    The shared dispatcher behind both send_otp (below) and
+    notifier.dispatch — one provider selection, used everywhere mail goes
+    out, so a working OTP send means a working deadline-alert send too.
+    """
+    provider = active_provider()
+    if provider == "brevo":
+        return _send_brevo(to, subject, text, html)
+    if provider == "resend":
+        return _send_resend(to, subject, text, html)
+    if provider == "smtp":
+        return _send_smtp(to, subject, text, html)
+
+    log.info(
+        "\n"
+        "================ CONSOLE EMAIL (not sent) ================\n"
+        "  to      : %s\n"
+        "  subject : %s\n"
+        "  ---\n"
+        "%s\n"
+        "  Configure an email provider to send for real.\n"
+        "==========================================================",
+        to,
+        subject,
+        text,
+    )
+    return SendResult(delivered=True, note="console provider — printed to the backend log, not emailed")
+
+
 def send_otp(email: str, code: str, purpose: str) -> SendResult:
     reason = _PURPOSE_TEXT.get(purpose, "verify your HackRadar account")
     minutes = settings.OTP_TTL_MINUTES
@@ -105,32 +136,29 @@ def send_otp(email: str, code: str, purpose: str) -> SendResult:
     )
     html = _html_body(code, reason, minutes)
 
-    provider = active_provider()
+    if active_provider() == "console":
+        # The OTP console path additionally echoes the code back to the
+        # caller (so the login page can show it) — the one thing send()'s
+        # generic console branch deliberately does not do.
+        log.warning(
+            "\n"
+            "================ DEV CODE (no email sent) ================\n"
+            "  to      : %s\n"
+            "  purpose : %s\n"
+            "  CODE    : %s\n"
+            "  Configure an email provider to send for real.\n"
+            "==========================================================",
+            email,
+            purpose,
+            code,
+        )
+        return SendResult(
+            delivered=True,
+            note="console provider — code printed to the server log, no email sent",
+            debug_code=code,
+        )
 
-    if provider == "brevo":
-        return _send_brevo(email, subject, text, html)
-    if provider == "resend":
-        return _send_resend(email, subject, text, html)
-    if provider == "smtp":
-        return _send_smtp(email, subject, text, html)
-
-    log.warning(
-        "\n"
-        "================ DEV CODE (no email sent) ================\n"
-        "  to      : %s\n"
-        "  purpose : %s\n"
-        "  CODE    : %s\n"
-        "  Configure an email provider to send for real.\n"
-        "==========================================================",
-        email,
-        purpose,
-        code,
-    )
-    return SendResult(
-        delivered=True,
-        note="console provider — code printed to the server log, no email sent",
-        debug_code=code,
-    )
+    return send(email, subject, text, html)
 
 
 def _send_smtp(email: str, subject: str, text: str, html: str) -> SendResult:

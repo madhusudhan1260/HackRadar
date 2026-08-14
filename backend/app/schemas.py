@@ -385,6 +385,75 @@ class IngestResult(BaseModel):
     error: str = ""
 
 
+# --------------------------------------------------------------------------
+# Internships
+# --------------------------------------------------------------------------
+
+
+class InternshipOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    source: str
+    url: str
+    title: str
+    company: str = ""
+    company_url: str = ""
+    description: str = ""
+
+    deadline: date | None = None
+    days_left: int | None = None
+    posted_date: date | None = None
+    term: str = ""
+
+    mode: str
+    location: str = ""
+    country: str = ""
+    is_india: bool
+
+    stipend_text: str = ""
+    stipend_inr: int = 0
+    stipend_display: str = "—"
+    is_paid: bool = True
+
+    duration_text: str = ""
+    eligibility: str = ""
+
+    categories: list[str] = []
+    tags: list[str] = []
+    status: str = "open"
+
+    bookmarked: bool = False
+    match: MatchInfo | None = None
+
+
+class InternshipList(BaseModel):
+    total: int
+    page: int
+    per_page: int
+    items: list[InternshipOut]
+
+
+class InternshipStatsOut(BaseModel):
+    total: int
+    open: int
+    india: int
+    remote: int
+    paid: int
+    by_source: dict[str, int]
+    by_category: dict[str, int]
+    last_ingest: datetime | None = None
+
+
+class InternshipIngestResult(BaseModel):
+    source: str
+    ok: bool
+    fetched: int
+    created: int
+    updated: int
+    error: str = ""
+
+
 class SourceInfo(BaseModel):
     name: str
     access_note: str = ""

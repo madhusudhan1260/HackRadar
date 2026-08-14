@@ -5,6 +5,7 @@ export default function SourcesPanel({ onIngested, toast }) {
   const [sources, setSources] = useState(null)
   const [alerts, setAlerts] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [sendingNotifs, setSendingNotifs] = useState(false)
   const [log, setLog] = useState('')
   const [error, setError] = useState(null)
 
@@ -14,6 +15,27 @@ export default function SourcesPanel({ onIngested, toast }) {
   }
 
   useEffect(load, [])
+
+  const sendNow = async () => {
+    setSendingNotifs(true)
+    try {
+      const result = await api.sendNotifications()
+      if (result.sent > 0) {
+        toast?.success(
+          `Sent ${result.sent} alert${result.sent === 1 ? '' : 's'} via ${result.channels.join(', ')}.`,
+        )
+      } else if (result.note) {
+        toast?.error(result.note)
+      } else {
+        toast?.info('Nothing due to send right now.')
+      }
+      load()
+    } catch (err) {
+      toast?.error(err.message)
+    } finally {
+      setSendingNotifs(false)
+    }
+  }
 
   const runIngest = async (name) => {
     setBusy(true)
@@ -123,13 +145,35 @@ export default function SourcesPanel({ onIngested, toast }) {
               <span>{alerts.email_configured ? '✅' : '⚪'} Email</span>
               <span>{alerts.telegram_configured ? '✅' : '⚪'} Telegram</span>
               <span>{alerts.count} alert{alerts.count === 1 ? '' : 's'} queued</span>
+              {alerts.count > 0 && (
+                <button
+                  className="btn primary"
+                  style={{ marginLeft: 'auto' }}
+                  disabled={sendingNotifs}
+                  onClick={sendNow}
+                >
+                  {sendingNotifs ? 'Sending…' : '📧 Send now'}
+                </button>
+              )}
             </div>
+            {alerts.count > 0 && (
+              <p className="assist-note" style={{ marginBottom: 12 }}>
+                These also send automatically in the background — this button
+                is for testing delivery right now instead of waiting.
+              </p>
+            )}
+
+            {alerts.email_configured && (
+              <p className="assist-note" style={{ marginBottom: 12 }}>
+                Sent to your account email automatically — no setup needed.
+              </p>
+            )}
 
             {!alerts.email_configured && !alerts.telegram_configured && (
               <p className="warn-note">
-                No delivery channel configured. Set SMTP_* or TELEGRAM_* in{' '}
-                <code>backend/.env</code> to receive these by email or Telegram — they still
-                show up here in the meantime.
+                No delivery channel reachable right now — alerts still show up
+                here in the meantime. If this persists, the admin needs to
+                check the email provider configuration.
               </p>
             )}
 

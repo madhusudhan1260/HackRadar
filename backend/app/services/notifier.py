@@ -3,13 +3,17 @@
 `pending_alerts` decides *what* should fire (and is safe to call any time —
 it never sends). `dispatch` actually sends and records the send so the same
 alert never goes out twice.
+
+Email goes through services/mailer.py — the same Brevo/Resend/SMTP/console
+dispatcher OTPs use. It used to have its own raw smtplib sender pointed at
+SMTP_HOST directly, which meant it silently broke wherever OTP delivery
+broke (Render blocks outbound SMTP), just discovered later since nothing
+exercises this path until a deadline is actually close.
 """
 from __future__ import annotations
 
 import logging
-import smtplib
 from datetime import date
-from email.message import EmailMessage
 
 import httpx
 from sqlalchemy import select
@@ -17,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..models import Bookmark, Hackathon, NotificationLog, Profile
+from . import mailer
 from .matcher import format_inr, score
 
 log = logging.getLogger(__name__)
@@ -85,6 +90,25 @@ def pending_alerts(db: Session, profile: Profile, today: date | None = None) -> 
     return alerts
 
 
+def _destination_email(db: Session, profile: Profile) -> str:
+    """Where deadline mail goes.
+
+    Profile.email is an old, separately-editable field predating account
+    email/OTP; most users never touch it. Falling back to the verified
+    login email means notifications work out of the box for every
+    registered account, not only ones who filled in a second address.
+    """
+    if profile.email and profile.email.strip():
+        return profile.email.strip()
+    if profile.user_id:
+        from ..models import User
+
+        user = db.get(User, profile.user_id)
+        if user and user.email:
+            return user.email
+    return ""
+
+
 def dispatch(db: Session, profile: Profile, dry_run: bool = False) -> dict:
     """Send every pending alert. `dry_run=True` previews without sending."""
     alerts = pending_alerts(db, profile)
@@ -98,9 +122,18 @@ def dispatch(db: Session, profile: Profile, dry_run: bool = False) -> dict:
     channels: list[str] = []
     body_text = _render_text(profile, alerts)
 
-    if settings.SMTP_HOST and profile.email:
-        if _send_email(profile.email, f"{len(alerts)} hackathon deadline(s) coming up", body_text):
+    destination = _destination_email(db, profile)
+    if destination:
+        result = mailer.send(
+            destination,
+            f"{len(alerts)} hackathon deadline{'s' if len(alerts) != 1 else ''} coming up",
+            body_text,
+            _render_html(profile, alerts),
+        )
+        if result.delivered:
             channels.append("email")
+        else:
+            log.warning("Deadline email to profile %s failed: %s", profile.id, result.note)
 
     chat_id = profile.telegram_chat_id or settings.TELEGRAM_CHAT_ID
     if settings.TELEGRAM_BOT_TOKEN and chat_id:
@@ -108,13 +141,14 @@ def dispatch(db: Session, profile: Profile, dry_run: bool = False) -> dict:
             channels.append("telegram")
 
     if not channels:
-        # Nothing configured — leave the alerts unlogged so they fire once a
-        # channel is set up, and let the caller show them in-app instead.
         return {
             "sent": 0,
             "channels": [],
             "alerts": summary,
-            "note": "No delivery channel configured. Set SMTP_* or TELEGRAM_* in .env.",
+            "note": (
+                "No delivery channel reachable. Add an email to your profile, or "
+                "set TELEGRAM_* — alerts still show here in the meantime."
+            ),
         }
 
     for alert in alerts:
@@ -168,23 +202,45 @@ def _render_text(profile: Profile, alerts: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def _send_email(to_address: str, subject: str, body: str) -> bool:
-    message = EmailMessage()
-    message["From"] = settings.SMTP_FROM or settings.SMTP_USER
-    message["To"] = to_address
-    message["Subject"] = subject
-    message.set_content(body)
+def _render_html(profile: Profile, alerts: list[dict]) -> str:
+    rows_html = ""
+    for alert in alerts:
+        row = alert["hackathon"]
+        when = "closes today" if alert["days_left"] == 0 else f"closes in {alert['days_left']} day(s)"
+        badge = "⭐ Saved · " if alert["bookmarked"] else ""
+        prize = format_inr(row.prize_inr) if row.prize_inr else "—"
+        rows_html += f"""
+        <tr>
+          <td style="padding:14px 0;border-bottom:1px solid #1f2a3d;">
+            <div style="font-size:14px;font-weight:650;color:#e8edf5;">{row.title}</div>
+            <div style="font-size:12.5px;color:#94a3b8;margin-top:3px;">
+              {badge}{when} · match {alert['match']['score']}% · prize {prize}
+            </div>
+            <a href="{row.url}" style="font-size:12.5px;color:#a5b4fc;">View / apply →</a>
+          </td>
+        </tr>"""
 
-    try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as server:
-            server.starttls()
-            if settings.SMTP_USER:
-                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.send_message(message)
-        return True
-    except Exception:
-        log.exception("Email delivery failed")
-        return False
+    return f"""\
+<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#0a0e17;font-family:-apple-system,
+               BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e8edf5;">
+    <div style="max-width:480px;margin:0 auto;background:#111827;border:1px solid #1f2a3d;
+                border-radius:16px;padding:28px;">
+      <h1 style="margin:0 0 4px;font-size:19px;">📡 HackRadar</h1>
+      <p style="margin:0 0 20px;color:#64748b;font-size:13px;">
+        {len(alerts)} deadline{'s' if len(alerts) != 1 else ''} coming up, {profile.name}
+      </p>
+      <table style="width:100%;border-collapse:collapse;">
+        {rows_html}
+      </table>
+      <p style="margin:20px 0 0;color:#64748b;font-size:11.5px;">
+        You're getting this because these are saved or match your profile well.
+        Adjust alert timing under Profile in HackRadar.
+      </p>
+    </div>
+  </body>
+</html>"""
 
 
 def _send_telegram(chat_id: str, body: str) -> bool:

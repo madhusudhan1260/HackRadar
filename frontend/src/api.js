@@ -152,6 +152,14 @@ export const api = {
   sources: () => request('/sources'),
   ingest: (sources) => post('/ingest', { sources: sources ?? null, limit: 200 }),
   notificationPreview: () => request('/notifications/preview'),
+  sendNotifications: () => post('/notifications/send', {}),
+
+  // --- internships ------------------------------------------------------
+  internships: (filters) => request(`/internships${qs(filters)}`),
+  internship: (id) => request(`/internships/${id}`),
+  internshipStats: () => request('/internships/stats'),
+  bookmarkInternship: (id) => post(`/internships/${id}/bookmark`, {}),
+  unbookmarkInternship: (id) => request(`/internships/${id}/bookmark`, { method: 'DELETE' }),
 
   // --- skill builder ----------------------------------------------------
   skillGaps: () => request('/skills/gaps'),

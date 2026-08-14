@@ -44,6 +44,13 @@ class Settings:
         for c in os.getenv("ENABLED_COLLECTORS", "devpost,mlh").split(",")
         if c.strip()
     ]
+    # 'internshala' stays out by default: no public API, ToS prohibits
+    # data mining. See internship_collectors/internshala.py.
+    ENABLED_INTERNSHIP_COLLECTORS: list[str] = [
+        c.strip()
+        for c in os.getenv("ENABLED_INTERNSHIP_COLLECTORS", "remotive,github-tracker").split(",")
+        if c.strip()
+    ]
     HTTP_TIMEOUT: float = float(os.getenv("HTTP_TIMEOUT", "20"))
     USER_AGENT: str = os.getenv(
         "USER_AGENT",
@@ -52,6 +59,12 @@ class Settings:
     # How often the background scheduler re-runs ingestion.
     INGEST_INTERVAL_MINUTES: int = int(os.getenv("INGEST_INTERVAL_MINUTES", "360"))
     RUN_SCHEDULER: bool = os.getenv("RUN_SCHEDULER", "true").lower() == "true"
+    # How often deadline alerts are checked and sent for every profile.
+    # NotificationLog already de-dupes, so running this more often than
+    # ingest is harmless — it just means an alert fires sooner after it
+    # first becomes eligible rather than up to a whole cycle late.
+    NOTIFY_INTERVAL_MINUTES: int = int(os.getenv("NOTIFY_INTERVAL_MINUTES", "120"))
+    RUN_NOTIFIER: bool = os.getenv("RUN_NOTIFIER", "true").lower() == "true"
 
     # --- Money ----------------------------------------------------------
     # Static conversion rates -> INR. Good enough for bucketing/filtering;

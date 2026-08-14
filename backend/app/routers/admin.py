@@ -97,10 +97,13 @@ def preview_notifications(
     db: Session = Depends(get_db), profile: Profile = Depends(get_current_profile)
 ):
     """What would be sent right now, without sending anything."""
+    from ..services import mailer
+    from ..services.notifier import _destination_email
+
     alerts = pending_alerts(db, profile)
     return {
         "count": len(alerts),
-        "email_configured": bool(settings.SMTP_HOST and profile.email),
+        "email_configured": mailer.is_configured() and bool(_destination_email(db, profile)),
         "telegram_configured": bool(
             settings.TELEGRAM_BOT_TOKEN and (profile.telegram_chat_id or settings.TELEGRAM_CHAT_ID)
         ),

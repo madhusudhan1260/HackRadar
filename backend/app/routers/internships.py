@@ -9,7 +9,7 @@ from sqlalchemy import String, func, or_, select
 from sqlalchemy.orm import Session
 
 from ..db import SessionLocal, get_db
-from ..deps import get_current_profile
+from ..deps import get_current_profile, get_current_user
 from ..internship_collectors import available as available_collectors
 from ..models import Internship, InternshipBookmark, InternshipIngestRun, Profile
 from ..schemas import (
@@ -135,7 +135,7 @@ def stats(db: Session = Depends(get_db)):
     )
 
 
-@router.get("/sources", response_model=list[SourceInfo])
+@router.get("/sources", response_model=list[SourceInfo], dependencies=[Depends(get_current_user)])
 def list_sources(db: Session = Depends(get_db)):
     from ..config import settings
 
@@ -165,7 +165,7 @@ def list_sources(db: Session = Depends(get_db)):
     return infos
 
 
-@router.post("/ingest", response_model=list[InternshipIngestResult])
+@router.post("/ingest", response_model=list[InternshipIngestResult], dependencies=[Depends(get_current_user)])
 def ingest(payload: IngestRequest, db: Session = Depends(get_db)):
     results = internship_pipeline.run_all(db, sources=payload.sources, limit=payload.limit)
     internship_pipeline.close_expired(db)

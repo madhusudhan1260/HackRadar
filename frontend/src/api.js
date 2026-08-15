@@ -160,6 +160,8 @@ export const api = {
   internshipStats: () => request('/internships/stats'),
   bookmarkInternship: (id) => post(`/internships/${id}/bookmark`, {}),
   unbookmarkInternship: (id) => request(`/internships/${id}/bookmark`, { method: 'DELETE' }),
+  internshipSources: () => request('/internships/sources'),
+  internshipIngest: (sources) => post('/internships/ingest', { sources: sources ?? null, limit: 300 }),
 
   // --- skill builder ----------------------------------------------------
   skillGaps: () => request('/skills/gaps'),

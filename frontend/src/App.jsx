@@ -20,6 +20,7 @@ import HackathonDetail from './components/HackathonDetail'
 import DeadlineBoard from './components/DeadlineBoard'
 import ProfilePanel from './components/ProfilePanel'
 import SourcesPanel from './components/SourcesPanel'
+import InternshipSourcesPanel from './components/InternshipSourcesPanel'
 import AssistantPanel from './components/AssistantPanel'
 import AdminPortal from './pages/AdminPortal'
 import FormFiller from './pages/FormFiller'
@@ -229,7 +230,12 @@ function Dashboard({ signOut, isAdmin, user }) {
           <Route path="/profile" element={<ProfilePanel onSaved={bumpRefresh} toast={toast} />} />
           <Route
             path="/sources"
-            element={<SourcesPanel onIngested={bumpRefresh} toast={toast} />}
+            element={
+              <>
+                <SourcesPanel onIngested={bumpRefresh} toast={toast} />
+                <InternshipSourcesPanel onIngested={bumpRefresh} toast={toast} />
+              </>
+            }
           />
           <Route
             path="/admin"

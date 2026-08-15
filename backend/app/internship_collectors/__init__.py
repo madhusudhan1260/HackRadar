@@ -1,15 +1,19 @@
 """Internship collector registry — mirrors app/collectors/__init__.py."""
 from __future__ import annotations
 
+from .adzuna import AdzunaCollector
 from .base import InternshipCollector, RawInternship
 from .github_tracker import GithubTrackerCollector
 from .internshala import InternshalaCollector
 from .remotive import RemotiveCollector
+from .unstop import UnstopCollector
 
 REGISTRY: dict[str, type[InternshipCollector]] = {
     RemotiveCollector.name: RemotiveCollector,
     GithubTrackerCollector.name: GithubTrackerCollector,
     InternshalaCollector.name: InternshalaCollector,
+    AdzunaCollector.name: AdzunaCollector,
+    UnstopCollector.name: UnstopCollector,
 }
 
 

@@ -44,13 +44,20 @@ class Settings:
         for c in os.getenv("ENABLED_COLLECTORS", "devpost,mlh").split(",")
         if c.strip()
     ]
-    # 'internshala' stays out by default: no public API, ToS prohibits
-    # data mining. See internship_collectors/internshala.py.
+    # 'internshala' and 'unstop' stay out by default: no public API, ToS
+    # prohibits data mining. See internship_collectors/internshala.py and
+    # internship_collectors/unstop.py. 'adzuna' is safe to default-enable
+    # even without credentials — it no-ops cleanly until ADZUNA_APP_ID/
+    # ADZUNA_APP_KEY are set, then starts working with zero further changes.
     ENABLED_INTERNSHIP_COLLECTORS: list[str] = [
         c.strip()
-        for c in os.getenv("ENABLED_INTERNSHIP_COLLECTORS", "remotive,github-tracker").split(",")
+        for c in os.getenv("ENABLED_INTERNSHIP_COLLECTORS", "remotive,github-tracker,adzuna").split(",")
         if c.strip()
     ]
+    # Free, self-serve signup: https://developer.adzuna.com/signup
+    ADZUNA_APP_ID: str = os.getenv("ADZUNA_APP_ID", "")
+    ADZUNA_APP_KEY: str = os.getenv("ADZUNA_APP_KEY", "")
+    ADZUNA_COUNTRY: str = os.getenv("ADZUNA_COUNTRY", "in")
     HTTP_TIMEOUT: float = float(os.getenv("HTTP_TIMEOUT", "20"))
     USER_AGENT: str = os.getenv(
         "USER_AGENT",

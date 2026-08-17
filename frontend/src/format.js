@@ -63,3 +63,32 @@ export const CATEGORY_LABELS = {
 export function categoryLabel(key) {
   return CATEGORY_LABELS[key] || key
 }
+
+/**
+ * One .ics file covering several deadlines at once — HackathonDetail.jsx
+ * has a single-event version of this; kept separate rather than shared so
+ * neither has to bend its VEVENT shape to fit the other's caller.
+ */
+export function buildBulkIcs(items) {
+  const stamp = (value) => String(value).replace(/-/g, '')
+  const events = items
+    .filter((item) => item.deadline)
+    .map((item) => [
+      'BEGIN:VEVENT',
+      `UID:hackradar-${item.kind}-${item.id}@hackradar`,
+      `DTSTART;VALUE=DATE:${stamp(item.deadline)}`,
+      `DTEND;VALUE=DATE:${stamp(item.deadline)}`,
+      `SUMMARY:Deadline — ${item.title}`,
+      `DESCRIPTION:${(item.organizer || '').replace(/[\n,;]/g, ' ')}\\n${item.url}`,
+      `URL:${item.url}`,
+      'BEGIN:VALARM',
+      'TRIGGER:-P1D',
+      'ACTION:DISPLAY',
+      'DESCRIPTION:Deadline tomorrow',
+      'END:VALARM',
+      'END:VEVENT',
+    ].join('\r\n'))
+
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//HackRadar//EN', ...events, 'END:VCALENDAR']
+  return new Blob([lines.join('\r\n')], { type: 'text/calendar' })
+}

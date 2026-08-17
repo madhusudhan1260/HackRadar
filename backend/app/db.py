@@ -75,6 +75,10 @@ _ADDED_COLUMNS: list[tuple[str, str, str, str | None]] = [
     ("profiles", "experience", "TEXT", "empty"),
     ("profiles", "achievements", "TEXT", "empty"),
     ("profiles", "team_name", "VARCHAR(120)", "empty"),
+    ("bookmarks", "status", "VARCHAR(20)", "saved"),
+    ("internship_bookmarks", "status", "VARCHAR(20)", "saved"),
+    ("users", "oauth_provider", "VARCHAR(20)", "empty"),
+    ("users", "oauth_subject", "VARCHAR(200)", "empty"),
 ]
 
 #: How each backend spells a false literal.
@@ -91,6 +95,9 @@ _SCHEMA_FIXES: list[tuple[str, str]] = [
     ("postgresql", "CREATE INDEX IF NOT EXISTS ix_users_email ON users (email)"),
     ("sqlite", "DROP INDEX IF EXISTS ix_users_email"),
     ("sqlite", "CREATE INDEX IF NOT EXISTS ix_users_email ON users (email)"),
+    # OAuth lookups are provider+subject, not a column either one indexes alone.
+    ("postgresql", "CREATE INDEX IF NOT EXISTS ix_users_oauth ON users (oauth_provider, oauth_subject)"),
+    ("sqlite", "CREATE INDEX IF NOT EXISTS ix_users_oauth ON users (oauth_provider, oauth_subject)"),
 ]
 
 
@@ -136,6 +143,13 @@ def _apply_pending_columns() -> None:
             elif backfill == "empty":
                 connection.execute(
                     text(f"UPDATE {table} SET {column} = '' WHERE {column} IS NULL")
+                )
+            elif backfill is not None:
+                # Any other string is a literal value, bound rather than
+                # interpolated even though it only ever comes from this file.
+                connection.execute(
+                    text(f"UPDATE {table} SET {column} = :val WHERE {column} IS NULL"),
+                    {"val": backfill},
                 )
 
 

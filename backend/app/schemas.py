@@ -461,3 +461,32 @@ class SourceInfo(BaseModel):
     last_run: datetime | None = None
     last_ok: bool | None = None
     count: int = 0
+
+
+# --------------------------------------------------------------------------
+# Applications (the tracker over hackathon + internship bookmarks)
+# --------------------------------------------------------------------------
+
+APPLICATION_STATUSES = ["saved", "applied", "interviewing", "rejected", "accepted"]
+
+
+class ApplicationItem(BaseModel):
+    kind: str  # "hackathon" | "internship"
+    id: int
+    title: str
+    url: str
+    organizer: str = ""  # hackathon organizer, or internship company
+    deadline: date | None = None
+    days_left: int | None = None
+    status: str = "saved"
+    value_display: str = "—"  # formatted prize or stipend
+    note: str = ""
+    updated_at: datetime | None = None
+
+
+class ApplicationList(BaseModel):
+    items: list[ApplicationItem]
+
+
+class ApplicationStatusIn(BaseModel):
+    status: str = Field(pattern="^(saved|applied|interviewing|rejected|accepted)$")

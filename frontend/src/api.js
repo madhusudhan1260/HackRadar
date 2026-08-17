@@ -12,6 +12,10 @@
 const BASE = `${(import.meta.env.VITE_API_BASE || '').replace(/\/$/, '')}/api`
 const TOKEN_KEY = 'hackradar_token'
 
+/** Exposed for the handful of calls that must be a real browser navigation
+ * (OAuth start) rather than a fetch — those build the URL themselves. */
+export const apiBase = BASE
+
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY) || ''
 }
@@ -116,6 +120,7 @@ function qs(params) {
 }
 
 const post = (path, body) => request(path, { method: 'POST', body: JSON.stringify(body) })
+const patch = (path, body) => request(path, { method: 'PATCH', body: JSON.stringify(body) })
 
 export const api = {
   health: () => request('/health'),
@@ -162,6 +167,14 @@ export const api = {
   unbookmarkInternship: (id) => request(`/internships/${id}/bookmark`, { method: 'DELETE' }),
   internshipSources: () => request('/internships/sources'),
   internshipIngest: (sources) => post('/internships/ingest', { sources: sources ?? null, limit: 300 }),
+
+  // --- applications (bookmark status tracker) -------------------------
+  applications: () => request('/applications'),
+  setHackathonStatus: (id, status) => patch(`/applications/hackathon/${id}/status`, { status }),
+  setInternshipStatus: (id, status) => patch(`/applications/internship/${id}/status`, { status }),
+
+  // --- OAuth sign-in ---------------------------------------------------
+  oauthProviders: () => request('/auth/oauth/providers'),
 
   // --- skill builder ----------------------------------------------------
   skillGaps: () => request('/skills/gaps'),

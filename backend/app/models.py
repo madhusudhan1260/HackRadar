@@ -104,6 +104,13 @@ class User(Base):
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     password_hash: Mapped[str] = mapped_column(String(200))
 
+    # OAuth sign-in (Google/GitHub). An OAuth-only account still gets a
+    # password_hash — a random one nobody knows — rather than making the
+    # column nullable, so no schema change is needed on that field and
+    # password login simply always fails for it, which is correct.
+    oauth_provider: Mapped[str] = mapped_column(String(20), default="")
+    oauth_subject: Mapped[str] = mapped_column(String(200), default="")
+
     role: Mapped[str] = mapped_column(String(20), default="user", index=True)  # user|admin
     # pending = registered but never completed the one-time phone OTP.
     status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
@@ -246,6 +253,8 @@ class InternshipBookmark(Base):
     internship_id: Mapped[int] = mapped_column(
         ForeignKey("internships.id", ondelete="CASCADE"), index=True
     )
+    # Mirrors Bookmark.status — see its comment.
+    status: Mapped[str] = mapped_column(String(20), default="saved")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     internship: Mapped[Internship] = relationship(back_populates="bookmarks")
@@ -322,6 +331,10 @@ class Bookmark(Base):
         ForeignKey("hackathons.id", ondelete="CASCADE"), index=True
     )
     note: Mapped[str] = mapped_column(Text, default="")
+    # saved|applied|interviewing|rejected|accepted — the application tracker.
+    # A bookmark already means "I care about this"; status is what happened
+    # next, so it lives here rather than a separate table.
+    status: Mapped[str] = mapped_column(String(20), default="saved")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     hackathon: Mapped[Hackathon] = relationship(back_populates="bookmarks")
@@ -375,3 +388,23 @@ class InternshipIngestRun(Base):
     updated: Mapped[int] = mapped_column(Integer, default=0)
     ok: Mapped[bool] = mapped_column(Boolean, default=True)
     error: Mapped[str] = mapped_column(Text, default="")
+
+
+class InternshipNotificationLog(Base):
+    """Mirrors NotificationLog — kept separate rather than adding a nullable
+    internship_id to that table, same reasoning as every other hackathon/
+    internship table split in this file."""
+
+    __tablename__ = "internship_notification_log"
+    __table_args__ = (
+        UniqueConstraint(
+            "profile_id", "internship_id", "kind", name="uq_internship_notification"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("profiles.id"), index=True)
+    internship_id: Mapped[int] = mapped_column(ForeignKey("internships.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(40))  # e.g. "deadline-3d"
+    channel: Mapped[str] = mapped_column(String(20), default="email")
+    sent_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

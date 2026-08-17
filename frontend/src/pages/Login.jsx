@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { api } from '../api'
+import { api, apiBase, setToken } from '../api'
 import { useAuth } from '../auth'
 import CodeBackdrop from '../components/CodeBackdrop'
 import Constellation from '../components/Constellation'
@@ -47,6 +47,40 @@ export default function Login() {
   const [usernameHint, setUsernameHint] = useState(null)
   const usernameTimer = useRef(null)
   const cardRef = useRef(null)
+
+  const [oauthProviders, setOauthProviders] = useState([])
+  const [oauthBusy, setOauthBusy] = useState(false)
+
+  useEffect(() => {
+    api.oauthProviders().then((r) => setOauthProviders(r.providers || [])).catch(() => {})
+  }, [])
+
+  // The OAuth callback redirects the whole browser back here with either
+  // ?oauth_token=... (success) or ?oauth_error=... on the query string —
+  // there is no fetch/XHR step for a top-level provider redirect to land on.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('oauth_token')
+    const oauthError = params.get('oauth_error')
+    if (!token && !oauthError) return
+
+    window.history.replaceState({}, '', window.location.pathname)
+    if (oauthError) {
+      setError(oauthError)
+      return
+    }
+    setOauthBusy(true)
+    setToken(token)
+    api
+      .me()
+      .then((user) => signIn(token, user))
+      .catch(() => {
+        setToken('')
+        setError('Sign-in failed — try again.')
+      })
+      .finally(() => setOauthBusy(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const set = (patch) => setForm((current) => ({ ...current, ...patch }))
 
@@ -324,6 +358,26 @@ export default function Login() {
           )}
 
           {error && <div className="error-banner">⚠ {error}</div>}
+
+          {oauthBusy && <div className="dev-banner">Completing sign-in…</div>}
+
+          {!isAdmin && !oauthBusy && (mode === 'signin' || mode === 'signup') && oauthProviders.length > 0 && (
+            <>
+              <div className="oauth-row">
+                {oauthProviders.includes('google') && (
+                  <a className="btn oauth-btn" href={`${apiBase}/auth/oauth/google/start`}>
+                    <span aria-hidden="true">🔴</span> Continue with Google
+                  </a>
+                )}
+                {oauthProviders.includes('github') && (
+                  <a className="btn oauth-btn" href={`${apiBase}/auth/oauth/github/start`}>
+                    <span aria-hidden="true">🐙</span> Continue with GitHub
+                  </a>
+                )}
+              </div>
+              <div className="oauth-divider"><span>or</span></div>
+            </>
+          )}
 
           {otp?.dev_code && mode === 'otp' && (
             <div className="dev-banner">

@@ -23,6 +23,7 @@ import SourcesPanel from './components/SourcesPanel'
 import InternshipSourcesPanel from './components/InternshipSourcesPanel'
 import AssistantPanel from './components/AssistantPanel'
 import AdminPortal from './pages/AdminPortal'
+import Applications from './pages/Applications'
 import FormFiller from './pages/FormFiller'
 import Hub from './pages/Hub'
 import Internships from './pages/Internships'
@@ -57,6 +58,7 @@ const VIEWS = [
   { path: '/deadlines', icon: '🔥', label: 'Deadlines' },
   { path: '/for-you', icon: '🧠', label: 'For You' },
   { path: '/saved', icon: '⭐', label: 'Saved' },
+  { path: '/applications', icon: '📋', label: 'Applications' },
   { path: '/form-filler', icon: '✨', label: 'Form Filling AI' },
   { path: '/skills', icon: '🎯', label: 'Skill Builder' },
   { path: '/profile', icon: '👤', label: 'Profile' },
@@ -219,6 +221,7 @@ function Dashboard({ signOut, isAdmin, user }) {
           <Route path="/" element={<Hub user={user} />} />
           <Route path="/hackathons" element={<ListView key="discover" view="discover" {...shared} />} />
           <Route path="/saved" element={<ListView key="saved" view="saved" {...shared} />} />
+          <Route path="/applications" element={<Applications toast={toast} />} />
           <Route path="/for-you" element={<ListView key="foryou" view="foryou" {...shared} />} />
           <Route
             path="/deadlines"

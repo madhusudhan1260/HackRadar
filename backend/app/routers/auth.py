@@ -20,9 +20,14 @@ quickly, and are rate limited — OTP endpoints attract abuse.
 """
 from __future__ import annotations
 
+import hashlib
+import re
+import secrets
 from datetime import datetime, timedelta, timezone
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -361,6 +366,127 @@ def reset_password(payload: ResetPasswordIn, request: Request, db: Session = Dep
     auth_service.log_event(db, "reset", True, user=user, reason="password changed", request=request)
 
     return AuthOut(token=token, user=to_user_out(user))
+
+
+@router.get("/oauth/providers")
+def oauth_providers():
+    """Which OAuth providers actually have credentials configured — the
+    frontend hides buttons for anything not in this list."""
+    from ..services import oauth
+
+    return {"providers": oauth.configured_providers()}
+
+
+@router.get("/oauth/{provider}/start")
+def oauth_start(provider: str):
+    """Redirect the browser to the provider's own consent screen."""
+    from ..services import oauth
+
+    if provider not in oauth.PROVIDERS:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Unknown sign-in provider.")
+    if provider not in oauth.configured_providers():
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            f"{provider.title()} sign-in is not configured yet.",
+        )
+    return RedirectResponse(oauth.authorize_url(provider, oauth.make_state()))
+
+
+@router.get("/oauth/{provider}/callback")
+def oauth_callback(
+    provider: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    code: str = "",
+    state: str = "",
+    error: str = "",
+):
+    """Where the provider redirects back to. Never returns JSON — this is a
+    top-level browser navigation, so the outcome (a token, or an error) is
+    handed to the frontend as a query param on a redirect, and Login.jsx
+    picks it up from there."""
+    from ..services import oauth
+
+    def fail(message: str) -> RedirectResponse:
+        return RedirectResponse(f"{settings.OAUTH_FRONTEND_URL}/?oauth_error={quote(message)}")
+
+    if provider not in oauth.PROVIDERS:
+        return fail("Unknown sign-in provider.")
+    if error:
+        return fail("Sign-in was cancelled.")
+    if not code or not state or not oauth.verify_state(state):
+        return fail("Sign-in request expired — try again.")
+
+    try:
+        info = oauth.exchange_code(provider, code)
+    except Exception:
+        return fail(f"{provider.title()} sign-in failed. Try again.")
+
+    user = db.scalar(
+        select(User).where(
+            User.oauth_provider == provider, User.oauth_subject == info.subject
+        )
+    )
+
+    # Same verified email, no OAuth linked yet: treat this as "the same
+    # person signing in a new way" rather than creating a second account.
+    if user is None and info.email:
+        candidate = db.scalar(
+            select(User).where(
+                User.email == normalize_email(info.email), User.oauth_provider == ""
+            )
+        )
+        if candidate is not None and candidate.status == "active":
+            candidate.oauth_provider = provider
+            candidate.oauth_subject = info.subject
+            candidate.email_verified = True
+            user = candidate
+
+    if user is None:
+        base = normalize_username(
+            (info.email.split("@")[0] if info.email else "") or info.name or f"{provider}user"
+        )
+        base = re.sub(r"[^a-z0-9._-]", "", base)[:26] or f"{provider}user"
+        username = base
+        suffix = 1
+        while db.scalar(select(User).where(User.username == username)) is not None:
+            suffix += 1
+            username = f"{base}{suffix}"[:30]
+
+        # No phone comes from either provider. A synthetic, unique
+        # placeholder keeps the (unique, not-null) column happy without
+        # pretending to be a real number anyone could call.
+        placeholder_phone = "oauth" + hashlib.sha1(
+            f"{provider}:{info.subject}".encode()
+        ).hexdigest()[:18]
+
+        user = User(
+            username=username,
+            name=info.name or username,
+            phone=placeholder_phone,
+            email=normalize_email(info.email) if info.email else None,
+            email_verified=bool(info.email),
+            # A random password nobody knows — password login always fails
+            # for this account, which is correct: it only signs in via OAuth.
+            password_hash=hash_password(secrets.token_urlsafe(32)),
+            oauth_provider=provider,
+            oauth_subject=info.subject,
+            role="user",
+            status="active",
+            phone_verified=False,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    if user.status != "active":
+        return fail("This account is not active. Contact support.")
+
+    auth_service.ensure_profile(db, user)
+    token = auth_service.create_session(db, user, request)
+    auth_service.log_event(db, "login", True, user=user, reason=f"oauth:{provider}", request=request)
+
+    return RedirectResponse(f"{settings.OAUTH_FRONTEND_URL}/?oauth_token={token}")
 
 
 @router.get("/check-username")

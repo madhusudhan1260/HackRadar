@@ -1,8 +1,9 @@
 """Deadline notifications over email and Telegram.
 
-`pending_alerts` decides *what* should fire (and is safe to call any time —
-it never sends). `dispatch` actually sends and records the send so the same
-alert never goes out twice.
+`pending_alerts` / `pending_internship_alerts` decide *what* should fire
+(and are safe to call any time — they never send). `dispatch` sends both
+kinds together as one digest and records the send so nothing goes out
+twice.
 
 Email goes through services/mailer.py — the same Brevo/Resend/SMTP/console
 dispatcher OTPs use. It used to have its own raw smtplib sender pointed at
@@ -20,7 +21,16 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import settings
-from ..models import Bookmark, Hackathon, NotificationLog, Profile
+from ..models import (
+    Bookmark,
+    Hackathon,
+    Internship,
+    InternshipBookmark,
+    InternshipNotificationLog,
+    NotificationLog,
+    Profile,
+)
+from . import internship_matcher
 from . import mailer
 from .matcher import format_inr, score
 
@@ -28,7 +38,7 @@ log = logging.getLogger(__name__)
 
 
 def pending_alerts(db: Session, profile: Profile, today: date | None = None) -> list[dict]:
-    """Alerts that are due but not yet sent, newest deadline first.
+    """Hackathon alerts that are due but not yet sent, newest deadline first.
 
     An event qualifies if it is bookmarked, or if it scores at least the
     profile's `notify_min_score`.
@@ -78,15 +88,83 @@ def pending_alerts(db: Session, profile: Profile, today: date | None = None) -> 
 
         alerts.append(
             {
-                "hackathon": row,
+                "type": "hackathon",
+                "row": row,
                 "kind": kind,
                 "days_left": days_left,
                 "match": match,
                 "bookmarked": is_bookmarked,
+                "value_desc": f"prize {format_inr(row.prize_inr)}" if row.prize_inr else "—",
             }
         )
 
-    alerts.sort(key=lambda a: (a["days_left"], -a["match"]["score"]))
+    return alerts
+
+
+def pending_internship_alerts(db: Session, profile: Profile, today: date | None = None) -> list[dict]:
+    """Same idea as pending_alerts, for internships.
+
+    Internships publish a firm deadline far less often than hackathons —
+    most sources only give a term ("Summer 2026") — so this naturally
+    surfaces a smaller slice than the hackathon alerts, not a bug.
+    """
+    today = today or date.today()
+    windows = sorted(set(profile.notify_days_before or [7, 3, 1]))
+    if not windows:
+        return []
+
+    horizon = max(windows)
+    rows = db.scalars(
+        select(Internship).where(
+            Internship.status == "open",
+            Internship.deadline.is_not(None),
+        )
+    ).all()
+
+    bookmarked = {
+        b.internship_id
+        for b in db.scalars(
+            select(InternshipBookmark).where(InternshipBookmark.profile_id == profile.id)
+        ).all()
+    }
+    already_sent = {
+        (n.internship_id, n.kind)
+        for n in db.scalars(
+            select(InternshipNotificationLog).where(
+                InternshipNotificationLog.profile_id == profile.id
+            )
+        ).all()
+    }
+
+    alerts: list[dict] = []
+    for row in rows:
+        days_left = (row.deadline - today).days
+        if days_left < 0 or days_left > horizon:
+            continue
+        if days_left not in windows:
+            continue
+
+        kind = f"deadline-{days_left}d"
+        if (row.id, kind) in already_sent:
+            continue
+
+        match = internship_matcher.score(row, profile)
+        is_bookmarked = row.id in bookmarked
+        if not is_bookmarked and match["score"] < (profile.notify_min_score or 0):
+            continue
+
+        alerts.append(
+            {
+                "type": "internship",
+                "row": row,
+                "kind": kind,
+                "days_left": days_left,
+                "match": match,
+                "bookmarked": is_bookmarked,
+                "value_desc": f"stipend {format_inr(row.stipend_inr)}" if row.stipend_inr else "—",
+            }
+        )
+
     return alerts
 
 
@@ -110,11 +188,14 @@ def _destination_email(db: Session, profile: Profile) -> str:
 
 
 def dispatch(db: Session, profile: Profile, dry_run: bool = False) -> dict:
-    """Send every pending alert. `dry_run=True` previews without sending."""
-    alerts = pending_alerts(db, profile)
+    """Send every pending alert — hackathons and internships together as one
+    digest. `dry_run=True` previews without sending."""
+    today = date.today()
+    alerts = pending_alerts(db, profile, today) + pending_internship_alerts(db, profile, today)
     if not alerts:
         return {"sent": 0, "channels": [], "alerts": []}
 
+    alerts.sort(key=lambda a: (a["days_left"], -a["match"]["score"]))
     summary = [_summarise(a) for a in alerts]
     if dry_run:
         return {"sent": 0, "channels": ["dry-run"], "alerts": summary}
@@ -126,7 +207,7 @@ def dispatch(db: Session, profile: Profile, dry_run: bool = False) -> dict:
     if destination:
         result = mailer.send(
             destination,
-            f"{len(alerts)} hackathon deadline{'s' if len(alerts) != 1 else ''} coming up",
+            f"{len(alerts)} deadline{'s' if len(alerts) != 1 else ''} coming up",
             body_text,
             _render_html(profile, alerts),
         )
@@ -152,14 +233,24 @@ def dispatch(db: Session, profile: Profile, dry_run: bool = False) -> dict:
         }
 
     for alert in alerts:
-        db.add(
-            NotificationLog(
-                profile_id=profile.id,
-                hackathon_id=alert["hackathon"].id,
-                kind=alert["kind"],
-                channel=",".join(channels),
+        if alert["type"] == "hackathon":
+            db.add(
+                NotificationLog(
+                    profile_id=profile.id,
+                    hackathon_id=alert["row"].id,
+                    kind=alert["kind"],
+                    channel=",".join(channels),
+                )
             )
-        )
+        else:
+            db.add(
+                InternshipNotificationLog(
+                    profile_id=profile.id,
+                    internship_id=alert["row"].id,
+                    kind=alert["kind"],
+                    channel=",".join(channels),
+                )
+            )
     db.commit()
 
     return {"sent": len(alerts), "channels": channels, "alerts": summary}
@@ -171,9 +262,10 @@ def dispatch(db: Session, profile: Profile, dry_run: bool = False) -> dict:
 
 
 def _summarise(alert: dict) -> dict:
-    row = alert["hackathon"]
+    row = alert["row"]
     return {
         "id": row.id,
+        "type": alert["type"],
         "title": row.title,
         "url": row.url,
         "deadline": row.deadline.isoformat() if row.deadline else None,
@@ -181,20 +273,21 @@ def _summarise(alert: dict) -> dict:
         "kind": alert["kind"],
         "match_score": alert["match"]["score"],
         "bookmarked": alert["bookmarked"],
-        "prize": format_inr(row.prize_inr) if row.prize_inr else "—",
+        "value_desc": alert["value_desc"],
     }
 
 
 def _render_text(profile: Profile, alerts: list[dict]) -> str:
     lines = [f"Hi {profile.name}, deadlines are approaching:", ""]
     for alert in alerts:
-        row = alert["hackathon"]
+        row = alert["row"]
         when = "TODAY" if alert["days_left"] == 0 else f"in {alert['days_left']} day(s)"
         star = "* " if alert["bookmarked"] else ""
-        lines.append(f"{star}{row.title}")
+        tag = "🛩" if alert["type"] == "hackathon" else "💼"
+        lines.append(f"{star}{tag} {row.title}")
         lines.append(
             f"   closes {when} ({row.deadline})  |  match {alert['match']['score']}%"
-            f"  |  prize {format_inr(row.prize_inr) if row.prize_inr else '—'}"
+            f"  |  {alert['value_desc']}"
         )
         lines.append(f"   {row.url}")
         lines.append("")
@@ -205,16 +298,19 @@ def _render_text(profile: Profile, alerts: list[dict]) -> str:
 def _render_html(profile: Profile, alerts: list[dict]) -> str:
     rows_html = ""
     for alert in alerts:
-        row = alert["hackathon"]
+        row = alert["row"]
         when = "closes today" if alert["days_left"] == 0 else f"closes in {alert['days_left']} day(s)"
         badge = "⭐ Saved · " if alert["bookmarked"] else ""
-        prize = format_inr(row.prize_inr) if row.prize_inr else "—"
+        kind_badge = "🛩 Hackathon" if alert["type"] == "hackathon" else "💼 Internship"
         rows_html += f"""
         <tr>
           <td style="padding:14px 0;border-bottom:1px solid #1f2a3d;">
+            <div style="font-size:11px;letter-spacing:0.04em;text-transform:uppercase;color:#5b7fa6;margin-bottom:4px;">
+              {kind_badge}
+            </div>
             <div style="font-size:14px;font-weight:650;color:#e8edf5;">{row.title}</div>
             <div style="font-size:12.5px;color:#94a3b8;margin-top:3px;">
-              {badge}{when} · match {alert['match']['score']}% · prize {prize}
+              {badge}{when} · match {alert['match']['score']}% · {alert['value_desc']}
             </div>
             <a href="{row.url}" style="font-size:12.5px;color:#a5b4fc;">View / apply →</a>
           </td>

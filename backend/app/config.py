@@ -93,6 +93,20 @@ class Settings:
     BREVO_API_KEY: str = os.getenv("BREVO_API_KEY", "")
     RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
 
+    # --- OAuth sign-in (Google / GitHub) ---------------------------------
+    # Each pair comes from that provider's own developer console — Google
+    # Cloud Console credentials page, GitHub Settings > Developer settings >
+    # OAuth Apps. A provider with no credentials set here just doesn't show
+    # a button; nothing else breaks.
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    GITHUB_CLIENT_ID: str = os.getenv("GITHUB_CLIENT_ID", "")
+    GITHUB_CLIENT_SECRET: str = os.getenv("GITHUB_CLIENT_SECRET", "")
+    # Where the browser lands once sign-in completes.
+    OAUTH_FRONTEND_URL: str = os.getenv("OAUTH_FRONTEND_URL", "http://localhost:5173")
+    # Must exactly match the redirect URI registered with each provider.
+    OAUTH_REDIRECT_BASE: str = os.getenv("OAUTH_REDIRECT_BASE", "http://localhost:8000")
+
     # --- Notifications --------------------------------------------------
     SMTP_HOST: str = os.getenv("SMTP_HOST", "")
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))

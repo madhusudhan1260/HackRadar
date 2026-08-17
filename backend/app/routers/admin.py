@@ -98,9 +98,10 @@ def preview_notifications(
 ):
     """What would be sent right now, without sending anything."""
     from ..services import mailer
-    from ..services.notifier import _destination_email
+    from ..services.notifier import _destination_email, pending_internship_alerts
 
-    alerts = pending_alerts(db, profile)
+    alerts = pending_alerts(db, profile) + pending_internship_alerts(db, profile)
+    alerts.sort(key=lambda a: (a["days_left"], -a["match"]["score"]))
     return {
         "count": len(alerts),
         "email_configured": mailer.is_configured() and bool(_destination_email(db, profile)),
@@ -109,9 +110,10 @@ def preview_notifications(
         ),
         "alerts": [
             {
-                "id": a["hackathon"].id,
-                "title": a["hackathon"].title,
-                "deadline": a["hackathon"].deadline,
+                "id": a["row"].id,
+                "type": a["type"],
+                "title": a["row"].title,
+                "deadline": a["row"].deadline,
                 "days_left": a["days_left"],
                 "match_score": a["match"]["score"],
                 "bookmarked": a["bookmarked"],
